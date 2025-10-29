@@ -1,1 +1,1 @@
-To run the experiment, first generate condition files. Some of the experiment functions are outside the main script, so make sure to keep them in the same directory.  
+To run the experiment, first generate condition files. Some of the experiment functions are outside the main script, so make sure to keep them in the same directory. The subject count is essentially there to engage the corresponding condition matrix.  
