@@ -1,1 +1,3 @@
-To run the experiment, first generate condition files. Some of the experiment functions are outside the main script, so make sure to keep them in the same directory. The subject count is essentially there to engage the corresponding condition matrix.  
+To run the experiment (_main), first generate condition files (via condition matrix generator). Some of the experiment functions are outside the main script, so make sure to keep them in the same directory when running the main script. The subject count is essentially there to engage the corresponding condition matrix (you can edit the code to engage a given cond. matrix of your liking instead).   
+
+All the parameters you need to change to run the experiment as originally designed (the DIRs for the stimuli, condition matricies, output destinations, etc.) are in the beginning of the code. To make finer-detail changes (eg. trial durations), explore farther below in the script.   
