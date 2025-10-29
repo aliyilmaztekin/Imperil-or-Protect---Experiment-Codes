@@ -2,4 +2,4 @@ To run the experiment (_main), first generate condition files (via condition mat
 
 All the parameters you need to change to run the experiment as originally designed (the DIRs for the stimuli, condition matrices, output destinations, etc.) are at the beginning of the code. To make more fine-grained changes (e.g., trial durations), explore further down in the script.  
 
-The analysis is done in R Studio. Simply change the data DIR at the top of the code. 
+The analysis is done in R Studio. It works with the data output format in the main experiment code. So, simply change the data DIR at the top of the code to your data location to run the analysis. 
