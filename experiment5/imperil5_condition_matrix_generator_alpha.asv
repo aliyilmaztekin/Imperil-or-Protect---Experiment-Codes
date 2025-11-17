@@ -1,0 +1,159 @@
+%% Imperil or Protect - 5: Eye Tracking
+%% Condition Matrix Generator
+% First started: 16.11.2025 
+% Coded by A.Y.
+
+% First and foremost, I believe in the ultimate randomness of the universe
+rng('shuffle');
+
+
+%% Generator Parameters
+
+% Enter the trial count, and condition number
+nTrials = 720;
+% 2 Repetition (1, 5) x 2 Context (No change, change). 
+nConds = 4;
+% Where should the output files go?
+condDest = 'C:\Users\eeglab\Documents\MACCLab\Ali Yılmaztekin\imperil5\imperil5ConditionFiles';
+
+for condFile = 1:15
+    % Create an empty number array. 
+    conditionMatrix = NaN(nTrials, 7);
+    
+    % Composition:
+    % 1st col: Trial number: [1 - nTrials]
+    % 2nd col: Repetition sequence: (1,2,3,4,5,6)
+    % 3rd col: Context change commands: 0= No change, 1= Change
+    % 4th col: Encoding site (on which half should the image appear for
+    % studying): 0= left visual half, 1= right visual half.
+    % 5th col: Testing site (on which half should the memory item appear
+    % against the foil at testing): 0= same as study, 1= the other side.
+    % 6th col: The original rotation angle 
+    % 7th col: Foil rotation angle for the wrong answer at testing. 
+    
+    liveTrial = (1:nTrials)';
+    repetitionSequence = [1 2 3 4 5 6]';
+    conditionMatrix(:,1) = liveTrial;
+    conditionMatrix(:,2) = repmat(repetitionSequence, nTrials/6, 1);
+    
+    % Find how many trials will get the context change commands and assign.
+    idxRep = conditionMatrix(:,2) == 1 | conditionMatrix(:,2) == 5;
+    nAssign = sum(idxRep);  
+    
+    contextChange = [zeros(nAssign/2,1); ones(nAssign/2,1)];  
+    contextChange = contextChange(randperm(nAssign));
+    conditionMatrix(idxRep, 3) = contextChange;
+    
+    % Encoding site has to stay the same throughout a repetition series.
+    idxRep = conditionMatrix(:,2) == 1;
+    nAssign = sum(idxRep);  
+    
+    encodingSite = [zeros(nAssign/2,1); ones(nAssign/2,1)];
+    encodingSite = encodingSite(randperm(nAssign));
+    conditionMatrix(:,4) = repelem(encodingSite, 6);
+    
+    % But testing site can be totally random.
+    testingSite = [zeros(nTrials/2,1);ones(nTrials/2,1)];
+    testingSite = testingSite(randperm(nTrials));
+    conditionMatrix(:, 5) = testingSite;  
+    
+    
+ 
+    
+    %% Rotation Angle Generation
+    % The below code works by the following conceptual logic: 
+    
+    % Begin by randomly picking a random number from 1 to 359. 
+    
+    % Every foil angle has to be different enough from the original angle to be
+    % perceptually distinguishable, yet not too different to stick out as
+    % different. The literature suggests that the sweet spot of possible value
+    % range is about 5-15 degrees, or 5-20. It is also good practice to pick
+    % values off this range as if drawing from a normal distribution.  
+    
+    % Here, the offset of the foil angle from the original one is selected as
+    % if drawing from a normal dist with a mean of 10, and an SD of 3, with
+    % degrees 5 and 15 spanning 95% of the offset range. 
+    
+    % Randomly select whether the offset should be clockwise or
+    % counter-clockwise to the original rotation. 
+    
+    % Importantly, since the rotation space is a circular one, we need to make
+    % sure that the values that exceed 359 are wrapped around. 
+    
+    % As a last control, we need to make sure each original rotation is at
+    % least 40 degrees apart from the one before both CW and CCW. 
+    
+    % It also handles the generation of 6 foils per 1 original angle. 
+    
+    %% Parameters
+    numOriginals = nTrials/6;
+    forbiddenRadius = 40;    % 40° around previous rotation
+    numFoilsPerOriginal = 6;
+    minOffset = 5;           % min foil distance from original
+    maxOffset = 15;          % max foil distance from original
+    meanOffset = 10;         % mean for the offset range
+    sdOffset = 3;            % SD for the offset range
+    
+    % Generate original rotations
+    originals = zeros(1, numOriginals);
+    
+    % First rotation random
+    originals(1) = randi([1 359], 1);
+    
+    for i = 2:numOriginals
+        prev = originals(i-1);
+        
+        % Forbidden zone: forbiddenRadius
+        forbidden = mod((prev - forbiddenRadius):(prev + forbiddenRadius), 359);
+        forbidden(forbidden == 0) = 359;  % MATLAB mod quirks
+        
+        % Allowed values
+        allowed = setdiff(1:359, forbidden);
+        
+        % Pick randomly among allowed
+        originals(i) = allowed(randi(length(allowed)));
+    end
+    
+    %% Generate foils for each original
+    foils = zeros(numOriginals, numFoilsPerOriginal);
+    
+    for i = 1:numOriginals
+        rot = originals(i);
+        
+        for j = 1:numFoilsPerOriginal
+            % Sample offset from truncated normal
+            offset = round(normrnd(meanOffset, sdOffset));
+            offset = max(minOffset, min(maxOffset, offset));
+            
+            % Random direction
+            if rand < 0.5
+                offset = -offset;
+            end
+            
+            % Circular wrap-around
+            foils(i,j) = mod(rot + offset - 1, 359) + 1;
+        end
+    end
+    
+    foils_flat = reshape(foils', 1, []);  % row-wise flatten
+    
+    % Lastly, append to the global condition matrix. 
+    conditionMatrix(:,6) = repelem(originals, 6)';  % repeated originals
+    conditionMatrix(:,7) = foils_flat';            % matching foils
+    
+    % Specify the folder where you want to save the file
+    saveFolder = condDest;
+    
+    % Build the filename dynamically
+    currentLabel = sprintf('imperil5cond%d.mat', condFile);
+    
+    % Build the full path
+    fullPath = fullfile(saveFolder, currentLabel);
+    
+    % Save the matrix
+    save(fullPath, 'conditionMatrix');
+end
+
+
+fprintf('15 new conditions files have been generated!\n');
