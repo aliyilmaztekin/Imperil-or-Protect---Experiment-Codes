@@ -1,6 +1,21 @@
-%% Imperil or Protect - Experiment 5 - Eye Tracking
+%% Imperil or Protect - Experiment 5 - Eye Tracking Experiment Script
 % First began: 15.11.2025 
 % Coded by A.Y.
+
+% Ask for participant number
+participantNumber = input('Enter participant number: ');
+
+% Engage a condition matrix. Loop around at every 15th participant. 
+currentConditionNumber = mod(lastParticipantNumber - 1, 15) + 1;
+
+% Build the filename dynamically
+currentCond = sprintf('imperil5cond%d.mat', currentConditionNumber);
+
+% Build the full path
+fileToLoad = fullfile(condFiles, currentCond);
+
+% Load the matrix.
+load(fileToLoad);
 
 %% SCREEN PARAMETERS
 
@@ -55,8 +70,6 @@ encodingSites = [stimRectLeft; stimRectRight];
 screenHeight=windowRect(4);
 screenWidth=windowRect(3);
 
-
-
 outputDest = 'C:\Users\eeglab\Documents\MACC_lab\Ali Yilmaztekin\imperil5\outputFiles';
 workspaceDest = 'C:\Users\eeglab\Documents\MACC_lab\Ali Yilmaztekin\imperil5\experimentWorkspace';
 
@@ -68,6 +81,14 @@ stimuliFiles = dir(fullfile(stimuliDIR, '*.png'));
 stimuliPaths = fullfile({stimuliFiles.folder}, {stimuliFiles.name});
 
 nAvailableStimuli = numel(stimuliPaths);
+
+totalTrial = length(conditionMatrix);
+
+if totalTrial == 720
+    trialPerBlock = 60;
+end
+
+totalBlock = totalTrial/trialPerBlock; 
 
 nExperimentalStimuli = totalTrial/6; 
 nTrainingStimuli = 10; 
@@ -83,7 +104,6 @@ remainingIndices = setdiff(1:nAvailableStimuli, experimentalStimulusIndices);
 trainingStimulusIndices = randsample(remainingIndices, nTrainingStimuli);
 trainingStimulusPaths = stimuliPaths(trainingStimulusIndices);
 trainingStimuli = repelem(trainingStimulusPaths, 6);
-
 
 % Make each image this big
 imageSize = [256 256];
@@ -194,6 +214,12 @@ if eyeTrack
 
 end
 
+%% EVENT DURATIONS
+itiDuration = 0.300;
+encodingDuration = 0.600;
+delayDuration = 0.900;
+feedbackDuration = 0.300;
+testingLimit = 3.000;
 
 %% OUTPUT MATRIX LAYOUT
 
@@ -202,23 +228,22 @@ outputMatrix = NaN(totalTrial,15);
 experimentalConditions = NaN(totalTrial,1);
 
     outputMatrix(:,1) = repmat(participantNumber,totalTrial,1); % 1st column: ID
-    outputMatrix(:,2) = repmat(conditionFile,totalTrial,1); % 2nd column: Condition File ID
+    outputMatrix(:,2) = repmat(currentConditionNumber,totalTrial,1); % 2nd column: Condition File ID
     outputMatrix(:,3) = repelem((1:totalBlock)', trialPerBlock); % 3rd column: Block Number
-    outputMatrix(:,4) = (1:totalTrial)'; % 4th column: trial counter
-    outputMatrix(:,5) = executiveMatrix.finalMatrix.Repetition(:);  % 5th column: repetition counter
-    outputMatrix(:,6) = executiveMatrix.finalMatrix.ContextChange(:);  % 6th column: context change 
-        outputMatrix(:,7) = "Context ID";  % 7th column: Current Context RGB (only the first number) 
+    outputMatrix(:,4) = conditionMatrix(:,1); % 4th column: trial counter
+    outputMatrix(:,5) = conditionMatrix(:,2);  % 5th column: repetition counter
+    outputMatrix(:,6) = conditionMatrix(:,3);  % 6th column: context change 
+    % 7th column: Current Context RGB (only the first number) 
+    outputMatrix(:,8) = conditionMatrix(:,4); % 8th column: Encoding site 
+    outputMatrix(:,9) = conditionMatrix(:,6); % 9th column: Original rotation angle
+    outputMatrix(:,10) = conditionMatrix(:,5); % 10th column: Testing site
+    outputMatrix(:,11) = conditionMatrix(:,7); % 11th column: Foil angle
+    % 12th column: Accuracy
+    % 13th column: Reaction Time
 
-        outputMatrix(:,8) = "Encoding Site"; 
-        outputMatrix(:,9) = "Original Angle";
-        outputMatrix(:,10) = "Testing Site";
-        outputMatrix(:,11) = "Foil Angle";
-    outputMatrix(:,12) = "Accuracy"; % 11th column: Accuracy
-    outputMatrix(:,13) = "Reaction Time"; % 12th column: Reaction Time
-    
     % Extract relevant columns for the exp. conditions column 
-    repetition     = outputMatrix(:,5);
-    contextChange  = outputMatrix(:,6);
+    repetition     = conditionMatrix(:,2);
+    contextChange  = conditionMatrix(:,3);
 
     % Assign values based on specified conditions
     experimentalConditions(repetition == 1 & contextChange == 0) = 1;
@@ -229,7 +254,7 @@ experimentalConditions = NaN(totalTrial,1);
     outputMatrix(:,14) = experimentalConditions; % 14th: Experimental Conditions 
     % (1= Rep 1, No Change; 2= Rep 1, Change; 3= Rep 5, No Change; 4= Rep 5, Change)
 
-    outputMatrix(:,15) = "breakTaken"; % 15th column: Break time % (updated inside the loop)
+    % 15th column: Break time
 
 % That's the trial counter. Gets updated dynamically inside the loop.  
 liveTrial = 0;
@@ -312,7 +337,6 @@ for block = 1:totalBlock
         Screen('Flip', window);
     end
 
-
     % The eye tracker needs to do calibration at the start of each block.
     % Start it with the termination of the break
     if eyeTrack
@@ -352,7 +376,7 @@ for block = 1:totalBlock
         % Show the background without the stimulus
     
         % If it's a context-change trial, switch the background
-        if outputMatrix(liveTrial, 6) == 1
+        if conditionMatrix(liveTrial, 3) == 1
             contextIndex = 3 - contextIndex;
             currentContext = contextColors(contextIndex);
             Screen('FillRect', window, currentContext, [0 0 screenWidth screenHeight]);
@@ -378,16 +402,16 @@ for block = 1:totalBlock
         % If value is 1, memory item is lateral to the right visual half. 
         % Counter-sites are for the upcoming probe screen. 
 
-        if outputMatrix(liveTrial, 8) == 0
+        if conditionMatrix(liveTrial, 4) == 0
             currentEncodingSite = encodingSites(1);
             counterEncodingSite = encodingSites(2);
-        elseif outputMatrix(liveTrial, 8) == 1
+        elseif conditionMatrix(liveTrial, 4) == 1
             currentEncodingSite = encodingSites(2);
             counterEncodingSite = encodingSites(1);
         end
     
         % Get the pre-determined rotation angle. 
-        rotationAngle = outputMatrix(liveTrial, 9);
+        rotationAngle = conditionMatrix(liveTrial, 6);
     
         % Get an image from the experimental stimuli pool
         memoryImage = imread(experimentalStimuli(liveTrial));
@@ -425,13 +449,13 @@ for block = 1:totalBlock
         % Ask a key press for the original orientation.
 
         % That's rotation angle for the foil image 
-        foilRotationAngle = outputMatrix(liveTrial, 11);
+        foilRotationAngle = conditionMatrix(liveTrial, 7);
 
         % Draw probe screen
         % 0 = encoding site is consistent with its testing site
         % 1 = inconsistent
 
-        if outputMatrix(liveTrial, 12) == 0
+        if conditionMatrix(liveTrial, 5)
             Screen('FillRect', window, currentContext, [0 0 screenWidth screenHeight]);
             Screen('DrawTexture', window, memoryImageTexture, [], currentEncodingSite, rotationAngle);
             Screen('DrawTexture', window, memoryImageTexture, [], counterEncodingSite, foilRotationAngle);
@@ -487,7 +511,7 @@ for block = 1:totalBlock
         % Put up the background
         Screen('FillRect', window, currentContext, [0 0 screenWidth screenHeight]);
 
-        testingSite = outputMatrix(liveTrial, 10);
+        testingSite = conditionMatrix(liveTrial, 5);
         
         % If testing was timed-out
         if ~keyPressed
@@ -530,3 +554,14 @@ for block = 1:totalBlock
         Screen('Close', memoryImageTexture);
     end
 end
+
+%% Save the data in the last block: 
+% Save the behavioral data
+currentLabel = sprintf('imperil5dataID%d.mat', participantNumber);
+fullPath = fullfile(outputDest, currentLabel);
+save(fullPath, 'outputMatrix');
+
+% Save the MATLAB workspace
+currentLabel = sprintf('imperil5workspaceID%d.mat', participantNumber);
+fullPath = fullfile(workspaceDest, currentLabel);
+save(fullPath);

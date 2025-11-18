@@ -6,9 +6,7 @@
 % First and foremost, I believe in the ultimate randomness of the universe
 rng('shuffle');
 
-
 %% Generator Parameters
-
 % Enter the trial count, and condition number
 nTrials = 720;
 % 2 Repetition (1, 5) x 2 Context (No change, change). 
@@ -154,6 +152,5 @@ for condFile = 1:15
     % Save the matrix
     save(fullPath, 'conditionMatrix');
 end
-
 
 fprintf('15 new conditions files have been generated!\n');
