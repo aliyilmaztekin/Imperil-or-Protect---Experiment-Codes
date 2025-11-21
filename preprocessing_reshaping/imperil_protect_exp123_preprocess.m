@@ -1,4 +1,4 @@
-experiment_handle = 1; % Which experiment do you wanna pull data from?
+experiment_handle = 3; % Which experiment do you wanna pull data from?
 
 analyze_main = false;
 analyze_surprise = false;
@@ -1710,6 +1710,15 @@ if analyze_sixlets == true
                 save('/Users/ali/Desktop/visual imperil project/imperil_all_analyses_data/all_data_experiment2_sixlets_anova.mat', 'all_data_experiment2_sixlets_anova');
 
     elseif experiment_handle == 3
+        
+        % Trial exclusion counter
+        trimmed = zeros(37440,1);
+
+        global_count = 0;
+
+        % Participant exclusion counter
+        skipped = 0;
+
         % Experiment 3 data location
         experiment3_data_dir = '/Users/ali/Desktop/visual imperil project/visuals imperil protect - CODE, STIMULI AND MORE/data_experiment3_mat/';
     
@@ -1733,6 +1742,7 @@ if analyze_sixlets == true
             % Check if both files exist
             if exist(current_data_dir, 'file') ~= 2
                 fprintf('Skipping participant %d: one or both files are missing.\n', current_subject);
+                skipped = skipped + 1;
                 continue;
             end
            
@@ -1757,103 +1767,127 @@ if analyze_sixlets == true
     
             % Start looking through each trial
             for current_trial = 1:trial_count
-                 if mod(current_trial,6) == 1
+                     if mod(current_trial,6) == 1
+
+                        global_count = global_count + 1;
+                            
+                        id_number(end+1,1) = current_subject;
+                        trial_number(end+1,1) = current_trial;
+                        block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
+                        repetition(end+1,1) = 1;
+                        accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
+                        RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
+                        waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
+                        decision_time(end+1,1) = RTs(end) - waitRT(end);
+                      
+                        if current_mat_table.dataMatrix(current_trial, 11) == "No Change" && current_mat_table.dataMatrix(current_trial, 12) == "No Interference Presented"  
+                            conditions(current_trial,1) = 1;
+                            context(current_trial,1) = 0;
+                            interference(current_trial,1) = 0;
+                        elseif current_mat_table.dataMatrix(current_trial, 11) == "No Change" && current_mat_table.dataMatrix(current_trial, 12) ~= "No Interference Presented"   
+                            conditions(current_trial,1) = 2;
+                            context(current_trial,1) = 0;
+                            interference(current_trial,1) = 1;
+                        elseif current_mat_table.dataMatrix(current_trial, 11) == "Yes Change" && current_mat_table.dataMatrix(current_trial, 12) == "No Interference Presented"   
+                            conditions(current_trial,1) = 3;
+                            context(current_trial,1) = 1;
+                            interference(current_trial,1) = 0;
+                        elseif current_mat_table.dataMatrix(current_trial, 11) == "Yes Change" && current_mat_table.dataMatrix(current_trial, 12) ~= "No Interference Presented"   
+                            conditions(current_trial,1) = 4;
+                            context(current_trial,1) = 1;
+                            interference(current_trial,1) = 1;
+                        end
+    
+                     elseif mod(current_trial, 6) == 2
                         
-                    id_number(end+1,1) = current_subject;
-                    trial_number(end+1,1) = current_trial;
-                    block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
-                    repetition(end+1,1) = 1;
-                    accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
-                    RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
-                    waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
-                    decision_time(end+1,1) = RTs(end) - waitRT(end);
-                  
-                    if current_mat_table.dataMatrix(current_trial, 11) == "No Change" && current_mat_table.dataMatrix(current_trial, 12) == "No Interference Presented"  
-                        conditions(current_trial,1) = 1;
-                        context(current_trial,1) = 0;
-                        interference(current_trial,1) = 0;
-                    elseif current_mat_table.dataMatrix(current_trial, 11) == "No Change" && current_mat_table.dataMatrix(current_trial, 12) ~= "No Interference Presented"   
-                        conditions(current_trial,1) = 2;
-                        context(current_trial,1) = 0;
-                        interference(current_trial,1) = 1;
-                    elseif current_mat_table.dataMatrix(current_trial, 11) == "Yes Change" && current_mat_table.dataMatrix(current_trial, 12) == "No Interference Presented"   
-                        conditions(current_trial,1) = 3;
-                        context(current_trial,1) = 1;
-                        interference(current_trial,1) = 0;
-                    elseif current_mat_table.dataMatrix(current_trial, 11) == "Yes Change" && current_mat_table.dataMatrix(current_trial, 12) ~= "No Interference Presented"   
-                        conditions(current_trial,1) = 4;
-                        context(current_trial,1) = 1;
-                        interference(current_trial,1) = 1;
-                    end
+                         global_count = global_count + 1;
 
-                 elseif mod(current_trial, 6) == 2
-                    id_number(end+1,1) = current_subject;
-                    trial_number(end+1,1) = current_trial;
-                    block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
-                    repetition(end+1,1) = 2;
-                    accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
-                    RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
-                    waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
-                    decision_time(end+1,1) = RTs(end) - waitRT(end);
+                        id_number(end+1,1) = current_subject;
+                        trial_number(end+1,1) = current_trial;
+                        block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
+                        repetition(end+1,1) = 2;
+                        accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
+                        RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
+                        waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
+                        decision_time(end+1,1) = RTs(end) - waitRT(end);
+                            
+                     elseif mod(current_trial, 6) == 3
+
+                         global_count = global_count + 1;
+
+
+                        id_number(end+1,1) = current_subject;
+                        trial_number(end+1,1) = current_trial;
+                        block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
+                        repetition(end+1,1) = 3;
+                        accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
+                        RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
+                        waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
+                        decision_time(end+1,1) = RTs(end) - waitRT(end);
+    
+                     elseif mod(current_trial, 6) == 4
+
+                        global_count = global_count + 1;
+
+                        id_number(end+1,1) = current_subject;
+                        trial_number(end+1,1) = current_trial;
+                        block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
+                        repetition(end+1,1) = 4;
+                        accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
+                        RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
+                        waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
+                        decision_time(end+1,1) = RTs(end) - waitRT(end);
+    
+                     elseif mod(current_trial, 6) == 5
+
+                        global_count = global_count + 1;
+
+                        id_number(end+1,1) = current_subject;
+                        trial_number(end+1,1) = current_trial;
+                        block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
+                        repetition(end+1,1) = 5;
+                        accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
+                        RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
+                        waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
+                        decision_time(end+1,1) = RTs(end) - waitRT(end);
+    
+                        if current_mat_table.dataMatrix(current_trial, 11) == "No Change" && current_mat_table.dataMatrix(current_trial, 12) == "No Interference Presented"  
+                            conditions(current_trial,1) = 3;
+                            context(current_trial,1) = 0;
+                            interference(current_trial,1) = 0;
+                        elseif current_mat_table.dataMatrix(current_trial, 11) == "No Change" && current_mat_table.dataMatrix(current_trial, 12) ~= "No Interference Presented"   
+                            conditions(current_trial,1) = 4;
+                            context(current_trial,1) = 0;
+                            interference(current_trial,1) = 1;
+                        elseif current_mat_table.dataMatrix(current_trial, 11) == "Yes Change" && current_mat_table.dataMatrix(current_trial, 12) == "No Interference Presented"   
+                            conditions(current_trial,1) = 3;
+                            context(current_trial,1) = 1;
+                            interference(current_trial,1) = 0;
+                        elseif current_mat_table.dataMatrix(current_trial, 11) == "Yes Change" && current_mat_table.dataMatrix(current_trial, 12) ~= "No Interference Presented"   
+                            conditions(current_trial,1) = 4;
+                            context(current_trial,1) = 1;
+                            interference(current_trial,1) = 1;
+                        end
+                     
+                     elseif mod(current_trial, 6) == 0
                         
-                 elseif mod(current_trial, 6) == 3
-                    id_number(end+1,1) = current_subject;
-                    trial_number(end+1,1) = current_trial;
-                    block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
-                    repetition(end+1,1) = 3;
-                    accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
-                    RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
-                    waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
-                    decision_time(end+1,1) = RTs(end) - waitRT(end);
+                        global_count = global_count + 1;
 
-                 elseif mod(current_trial, 6) == 4
-                    id_number(end+1,1) = current_subject;
-                    trial_number(end+1,1) = current_trial;
-                    block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
-                    repetition(end+1,1) = 4;
-                    accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
-                    RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
-                    waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
-                    decision_time(end+1,1) = RTs(end) - waitRT(end);
 
-                 elseif mod(current_trial, 6) == 5
-                    id_number(end+1,1) = current_subject;
-                    trial_number(end+1,1) = current_trial;
-                    block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
-                    repetition(end+1,1) = 5;
-                    accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
-                    RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
-                    waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
-                    decision_time(end+1,1) = RTs(end) - waitRT(end);
-
-                    if current_mat_table.dataMatrix(current_trial, 11) == "No Change" && current_mat_table.dataMatrix(current_trial, 12) == "No Interference Presented"  
-                        conditions(current_trial,1) = 3;
-                        context(current_trial,1) = 0;
-                        interference(current_trial,1) = 0;
-                    elseif current_mat_table.dataMatrix(current_trial, 11) == "No Change" && current_mat_table.dataMatrix(current_trial, 12) ~= "No Interference Presented"   
-                        conditions(current_trial,1) = 4;
-                        context(current_trial,1) = 0;
-                        interference(current_trial,1) = 1;
-                    elseif current_mat_table.dataMatrix(current_trial, 11) == "Yes Change" && current_mat_table.dataMatrix(current_trial, 12) == "No Interference Presented"   
-                        conditions(current_trial,1) = 3;
-                        context(current_trial,1) = 1;
-                        interference(current_trial,1) = 0;
-                    elseif current_mat_table.dataMatrix(current_trial, 11) == "Yes Change" && current_mat_table.dataMatrix(current_trial, 12) ~= "No Interference Presented"   
-                        conditions(current_trial,1) = 4;
-                        context(current_trial,1) = 1;
-                        interference(current_trial,1) = 1;
+                        id_number(end+1,1) = current_subject;
+                        trial_number(end+1,1) = current_trial;
+                        block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
+                        repetition(end+1,1) = 6;
+                        accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
+                        RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
+                        waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
+                        decision_time(end+1,1) = RTs(end) - waitRT(end);
+                     end
+             
+                    if abs(str2double(current_mat_table.dataMatrix(current_trial,7)) - str2double(current_mat_table.dataMatrix(current_trial,9))) < 30
+                        trimmed(global_count,1) = 1;
                     end
-                 
-                 elseif mod(current_trial, 6) == 0
-                    id_number(end+1,1) = current_subject;
-                    trial_number(end+1,1) = current_trial;
-                    block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
-                    repetition(end+1,1) = 6;
-                    accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
-                    RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
-                    waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
-                    decision_time(end+1,1) = RTs(end) - waitRT(end);
-                 end
+                
             end
         
         
@@ -1866,9 +1900,13 @@ if analyze_sixlets == true
     
             % Repeat the process for each participant
         end
+    end
+
+    % Shave off the invalid trials from the final dataset
+    all_data_experiment3_sixlets_anova(trimmed == 1, :) = [];
 
         % When done with extracting data for experiment 3, save it as a mat file
         % for analysis
-                save('/Users/ali/Desktop/visual imperil project/imperil_all_analyses_data/all_data_experiment3_sixlets_anova.mat', 'all_data_experiment3_sixlets_anova');
-    end
+        save('/Users/ali/Desktop/visual imperil project/imperil_all_analyses_data/all_data_experiment3_sixlets_anova.mat', 'all_data_experiment3_sixlets_anova');
+       
 end
