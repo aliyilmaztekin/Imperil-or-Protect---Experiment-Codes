@@ -1776,8 +1776,8 @@ if analyze_sixlets == true
                         block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
                         repetition(end+1,1) = 1;
                         accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
-                        RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
-                        waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
+                        RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15));
+                        waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16));
                         decision_time(end+1,1) = RTs(end) - waitRT(end);
                       
                         if current_mat_table.dataMatrix(current_trial, 11) == "No Change" && current_mat_table.dataMatrix(current_trial, 12) == "No Interference Presented"  
@@ -1807,8 +1807,8 @@ if analyze_sixlets == true
                         block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
                         repetition(end+1,1) = 2;
                         accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
-                        RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
-                        waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
+                        RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15));
+                        waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16));
                         decision_time(end+1,1) = RTs(end) - waitRT(end);
                             
                      elseif mod(current_trial, 6) == 3
@@ -1821,8 +1821,8 @@ if analyze_sixlets == true
                         block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
                         repetition(end+1,1) = 3;
                         accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
-                        RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
-                        waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
+                        RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15));
+                        waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16));
                         decision_time(end+1,1) = RTs(end) - waitRT(end);
     
                      elseif mod(current_trial, 6) == 4
@@ -1834,8 +1834,8 @@ if analyze_sixlets == true
                         block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
                         repetition(end+1,1) = 4;
                         accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
-                        RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
-                        waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
+                        RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15));
+                        waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16));
                         decision_time(end+1,1) = RTs(end) - waitRT(end);
     
                      elseif mod(current_trial, 6) == 5
@@ -1847,8 +1847,8 @@ if analyze_sixlets == true
                         block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
                         repetition(end+1,1) = 5;
                         accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
-                        RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
-                        waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
+                        RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15));
+                        waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16));
                         decision_time(end+1,1) = RTs(end) - waitRT(end);
     
                         if current_mat_table.dataMatrix(current_trial, 11) == "No Change" && current_mat_table.dataMatrix(current_trial, 12) == "No Interference Presented"  
@@ -1879,8 +1879,8 @@ if analyze_sixlets == true
                         block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
                         repetition(end+1,1) = 6;
                         accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
-                        RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
-                        waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
+                        RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15));
+                        waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16));
                         decision_time(end+1,1) = RTs(end) - waitRT(end);
                      end
              
@@ -1902,8 +1902,14 @@ if analyze_sixlets == true
         end
     end
 
+    disp(size(all_data_experiment3_sixlets_anova));
+
     % Shave off the invalid trials from the final dataset
     all_data_experiment3_sixlets_anova(trimmed == 1, :) = [];
+
+    disp(size(all_data_experiment3_sixlets_anova));
+
+
 
         % When done with extracting data for experiment 3, save it as a mat file
         % for analysis

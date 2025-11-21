@@ -33,17 +33,12 @@ combinedData <- raw_data_data_frame
 # 2. Filter relevant IVs and log-transform DV
 # -----------------------------
 
-dependent_variable <- "angle"
+dependent_variable <- "rt"
 
 # Choose epsilon based on DV
 epsilon <- ifelse(dependent_variable == "angle", 1e-6, 0)
 
 combinedData_sub <- combinedData %>%
-  filter(
-    repetition %in% c(1, 5),
-    context %in% c(0, 1),
-    interference %in% c(0, 1)
-  ) %>%
   mutate(
     DV = log(.data[[dependent_variable]] + epsilon),  # add epsilon only if needed
     repetition = factor(repetition),
@@ -51,6 +46,8 @@ combinedData_sub <- combinedData %>%
     interference = factor(interference)
   ) %>%
   filter(!is.na(DV))
+
+print(nrow(combinedData_sub))
 
 # -----------------------------
 # 3. Remove outliers per participant (±2.5 SD)
@@ -63,6 +60,18 @@ combinedData_sub <- combinedData_sub %>%
   filter(DV >= (mean_DV - 2.5 * sd_DV) &
            DV <= (mean_DV + 2.5 * sd_DV)) %>%
   select(-mean_DV, -sd_DV)  # drop temporary columns
+
+print(nrow(combinedData_sub))
+
+
+# 4. Filter out the non-critical item repetitions
+combinedData_sub <- combinedData_sub %>%
+  filter(
+    repetition %in% c(1, 5),
+    context %in% c(0, 1),
+    interference %in% c(0, 1)
+  ) %>%
+
 
 
 #### CHECK FOR TRIAL DISTRIBUTION BALANCE ####
