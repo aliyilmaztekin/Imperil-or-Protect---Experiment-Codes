@@ -10,32 +10,14 @@ library(moments)
 library(emmeans)
 options(scipen = 999)  # Avoid scientific notation
 
-# 1th column: Participant ID
-# 2th column: Trial Number
-# 3th column: Item Repetition
-# 4th column: Block Number
-# 5th column: Angular Deviation
-# 6th column: Reaction Time
-# 7th column: Initiation Time
-# 8th column: Movement Time
-# 9th column: Condition Codes
-# 10th column: Context
-# 11th column: Interference
-
 # -----------------------------
 # 1. Load MAT files
 # -----------------------------
-
 raw_data <- "/Users/ali/Desktop/visual imperil project/imperil_all_analyses_data/all_data_experiment2_sixlets_anova.mat"
 raw_data_read <- readMat(raw_data)
 
-# Extract numeric matrix
+# Extract numeric matrix and convert to data frame
 raw_data_matrix <- raw_data_read$all.data.experiment2.sixlets.anova
-
-# Confirm it's numeric and has dimensions
-dim(raw_data_matrix)
-
-# Convert to data frame
 raw_data_data_frame <- as.data.frame(raw_data_matrix)
 
 # Assign column names
@@ -47,99 +29,104 @@ colnames(raw_data_data_frame) <- c(
 
 combinedData <- raw_data_data_frame
 
-
-
 # -----------------------------
-# 2. Filter for relevant IVs and compute DV
+# 2. Filter relevant IVs and log-transform DV
 # -----------------------------
+
+dependent_variable <- "angle"
+
+# Choose epsilon based on DV
+epsilon <- ifelse(dependent_variable == "angle", 1e-6, 0)
+
 combinedData_sub <- combinedData %>%
   filter(
-    repetition %in% c(1, 5),     # repetitions 1 and 5
-    context %in% c(0, 1),    # contextChange 0 and 1
-    interference %in% c(0, 1)     # interference 0 and 1
+    repetition %in% c(1, 5),
+    context %in% c(0, 1),
+    interference %in% c(0, 1)
   ) %>%
   mutate(
-    DV = log(angle + 1),
-    repetition = factor(repetition), 
+    DV = log(.data[[dependent_variable]] + epsilon),  # add epsilon only if needed
+    repetition = factor(repetition),
     context = factor(context),
     interference = factor(interference)
   ) %>%
-  filter(!is.na(DV))     # remove NaN/timeout trials
-
+  filter(!is.na(DV))
 
 # -----------------------------
-# Check trial counts per condition per participant
+# 3. Remove outliers per participant (±2.5 SD)
+# -----------------------------
+combinedData_sub <- combinedData_sub %>%
+  group_by(subject) %>%
+  mutate(mean_DV = mean(DV, na.rm = TRUE),
+         sd_DV   = sd(DV, na.rm = TRUE)) %>%
+  ungroup() %>%
+  filter(DV >= (mean_DV - 2.5 * sd_DV) &
+           DV <= (mean_DV + 2.5 * sd_DV)) %>%
+  select(-mean_DV, -sd_DV)  # drop temporary columns
+
+
+#### CHECK FOR TRIAL DISTRIBUTION BALANCE ####
+# -----------------------------
+# 4. Compute trial counts per participant per condition (after outlier removal)
 # -----------------------------
 trial_counts <- combinedData_sub %>%
   group_by(subject, repetition, context, interference) %>%
   summarize(n_trials = n(), .groups = "drop")
 
-# Print summary
-print(trial_counts, n=51)
-
-# Optional: summarize imbalance per participant
-trial_balance_summary <- trial_counts %>%
-  group_by(subject) %>%
+# Summary statistics across conditions
+imbalance_summary <- trial_counts %>%
+  group_by(repetition, context, interference) %>%
   summarize(
-    min_trials = min(n_trials),
-    max_trials = max(n_trials),
-    range_trials = max_trials - min_trials,
-    total_trials = sum(n_trials)
+    mean_trials = mean(n_trials),
+    sd_trials   = sd(n_trials),
+    min_trials  = min(n_trials),
+    max_trials  = max(n_trials),
+    .groups = "drop"
   )
 
-print(trial_balance_summary, n=54)
-
-# Optional: see which participants have unequal counts
-unequal_subjects <- trial_balance_summary %>%
-  filter(range_trials > 0)
-
-print(unequal_subjects, n=54)
-
-
-
-
-
-
-
-
-
-
-
-
-
-# -----------------------------
-# 2b. Remove outliers per participant (beyond 2.5 SD)
-# -----------------------------
-combinedData_sub <- combinedData_sub %>%
+# Participant-level imbalance
+participant_imbalance <- trial_counts %>%
   group_by(subject) %>%
-  mutate(mean_DV = mean(DV, na.rm = TRUE),
-         sd_DV = sd(DV, na.rm = TRUE)) %>%
-  ungroup() %>%
-  filter(DV >= (mean_DV - 2.5 * sd_DV) &
-           DV <= (mean_DV + 2.5 * sd_DV)) %>%
-  select(-mean_DV, -sd_DV)   # drop temporary columns
+  summarize(
+    range_within_participant = max(n_trials) - min(n_trials),
+    .groups = "drop"
+  )
 
+# Overall coefficient of variation
+overall_cv <- sd(trial_counts$n_trials) / mean(trial_counts$n_trials)
 
-
-
-
-
-
+# Print summaries
+print(imbalance_summary)
+print(participant_imbalance)
+print(overall_cv)
 
 # -----------------------------
-# 3. Collapse to participant x condition means
+# 5. Flag participants with low trial counts (<20)
 # -----------------------------
-combinedData_sub_means <- combinedData_sub %>%
+low_trial_participants <- trial_counts %>%
+  filter(n_trials < 20) %>%
+  distinct(subject)
+
+print(low_trial_participants)
+
+# -----------------------------
+# 6. Create RM-ANOVA dataset (per-participant per-condition averages)
+# -----------------------------
+data_RMAnova <- combinedData_sub %>%
   group_by(subject, repetition, context, interference) %>%
-  summarize(DV = mean(DV, na.rm = TRUE), .groups = "drop")
+  summarize(mean_DV = mean(DV), .groups = "drop")
 
-# -----------------------------
-# 4. Run repeated measures ANOVA
-# -----------------------------
+# Optionally, exclude low-trial participants for sensitivity analysis:
+data_RMAnova_clean <- data_RMAnova %>%
+  filter(!subject %in% low_trial_participants$subject)
+
+#### CHECK FOR TRIAL DISTRIBUTION BALANCE ####
+
+
 anova_res <- ezANOVA(
-  data = combinedData_sub_means,
-  dv = .(DV),
-  wid = .(subject),
+  data = data_RMAnova_clean,
+  dv = mean_DV,             # <- use the actual column name
+  wid = subject,
   within = .(repetition, context, interference),
   type = 3,
   detailed = TRUE
@@ -147,6 +134,11 @@ anova_res <- ezANOVA(
 
 anova_clean <- anova_res$ANOVA %>%
   mutate(across(where(is.numeric), ~ round(.x, 3)))  # keep 3 decimals
+
+print(anova_clean)
+
+
+
 
 # Fit repeated-measures ANOVA model with the new factor 'interference'
 aov_model <- aov(
@@ -169,6 +161,11 @@ data_summary <- combinedData_sub_means %>%
     se_DV = sd(DV, na.rm = TRUE) / sqrt(n()),
     .groups = "drop"
   )
+
+
+
+
+
 
 # Rename context labels
 data_summary$context <- factor(
