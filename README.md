@@ -1,6 +1,6 @@
-"Imperil or Protect" is the internal codename for the set of experiments I conducted as my master's thesis. 
+"Imperil or Protect" is the internal codename for a set of experiments I conducted as my master's thesis. 
 
-The official title is "Memory in Focus: Unveiling the Impact of Reactivation on Memory Vulnerability". 
+The official title of the study is "Memory in Focus: Unveiling the Impact of Reactivation on Memory Vulnerability". 
 
 The main aim of the project was to see whether delay-period interference hurts memory performance for repeatedly studied images that were brought back to an active state in working memory following a change in the context associated with the item. 
 
