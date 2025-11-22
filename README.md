@@ -11,5 +11,5 @@ Note that the general reability and quality of the coding gets better across exp
 
 The individual experiment folders contain the experiment scripts (suffixed "_main"), as well as the analysis codes. 
 
-All the codes were written by me and substantial help was received from ChatGPT (although only in the form of consoltation, and hardly ever through copying-pasting code). 
+All the codes were written by me and substantial help was received from ChatGPT (although only in the form of consoltation, and hardly ever through copy-pasting). 
 
