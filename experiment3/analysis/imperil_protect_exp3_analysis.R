@@ -41,6 +41,7 @@ epsilon <- ifelse(dependent_variable == "angle", 1e-6, 0)
 combinedData_sub <- combinedData %>%
   mutate(
     DV = log(.data[[dependent_variable]] + epsilon),  # add epsilon only if needed
+    subject = factor(subject),
     repetition = factor(repetition),
     context = factor(context),
     interference = factor(interference)
@@ -53,7 +54,7 @@ print(nrow(combinedData_sub))
 # 3. Remove outliers per participant (±2.5 SD)
 # -----------------------------
 combinedData_sub <- combinedData_sub %>%
-  group_by(subject) %>%
+  group_by(subject, context, interference) %>%
   mutate(mean_DV = mean(DV, na.rm = TRUE),
          sd_DV   = sd(DV, na.rm = TRUE)) %>%
   ungroup() %>%
