@@ -1,8 +1,8 @@
-experiment_handle = 3; % Which experiment do you wanna pull data from?
+experiment_handle = 2; % Which experiment do you wanna pull data from?
 
 analyze_main = false;
-analyze_surprise = false;
-analyze_sixlets = true;
+analyze_surprise = true;
+analyze_sixlets = false;
 
 % All analysis names are: 
 % Main analyses (ACC, RT, MRT) DONE
@@ -1019,27 +1019,26 @@ if analyze_surprise == true
                 current_image_name = surprise_images{current_surprise_image, "Var5"};
                 matchIdx = find(strcmp(current_csv_table{:, "Var8"}, current_image_name));
     
-               
-
-                if (strcmp(current_csv_table{matchIdx(1), "Var12"}, 'Yes Change') && strcmp(current_csv_table{matchIdx(1), "Var13"}, 'Right Interference')) || (strcmp(current_csv_table{matchIdx(1), "Var12"}, 'Yes Change') && strcmp(current_csv_table{matchIdx(1), "Var13"}, 'Left Interference'))
-                    history(end+1,1) = 3;
-                elseif strcmp(current_csv_table{matchIdx(1), "Var12"}, 'Yes Change')
-                    history(end+1,1) = 1;
-                elseif strcmp(current_csv_table{matchIdx(1), "Var13"}, 'Right Interference') || strcmp(current_csv_table{matchIdx(1), "Var13"}, 'Left Interference')
-                    history(end+1,1) = 2;
-                else
-                    history(end+1,1) = 0;
-                end
-
-                if history(end) ~= 0
-                   continue;
-                end
+              
+                % if (strcmp(current_csv_table{matchIdx(1), "Var12"}, 'Yes Change') && strcmp(current_csv_table{matchIdx(1), "Var13"}, 'Right Interference')) || (strcmp(current_csv_table{matchIdx(1), "Var12"}, 'Yes Change') && strcmp(current_csv_table{matchIdx(1), "Var13"}, 'Left Interference'))
+                %     history(end+1,1) = 3;
+                % elseif strcmp(current_csv_table{matchIdx(1), "Var12"}, 'Yes Change')
+                %     history(end+1,1) = 1;
+                % elseif strcmp(current_csv_table{matchIdx(1), "Var13"}, 'Right Interference') || strcmp(current_csv_table{matchIdx(1), "Var13"}, 'Left Interference')
+                %     history(end+1,1) = 2;
+                % else
+                %     history(end+1,1) = 0;
+                % end
+                % 
+                % if history(end) ~= 0
+                %    continue;
+                % end
 
                 id_number(end+1,1) = current_surprise_participant;
                 trial_number(end+1, 1) = current_surprise_image;
 
                 repetition(end+1,1) = current_csv_table{matchIdx(5), "Var3"};
-                phase(end+1,1) = 1;
+                % phase(end+1,1) = 1;
                 
                 current_context_change_command = current_csv_table{matchIdx(5), "Var4"};               
                 
@@ -1062,10 +1061,10 @@ if analyze_surprise == true
                     interference_subtype(end+1, 1) = 1;
                 end
 
-                accuracy_rates(end+1,1) = abs(current_csv_table{matchIdx(5), "Var6"});
-                RTs(end+1,1) = current_csv_table{matchIdx(5), "Var9"};
-                waitRT(end+1,1) = current_csv_table{matchIdx(5), "Var10"}; 
-                decision_time(end+1,1) = RTs(end) - waitRT(end);
+                % accuracy_rates(end+1,1) = abs(current_csv_table{matchIdx(5), "Var6"});
+                % RTs(end+1,1) = current_csv_table{matchIdx(5), "Var9"};
+                % waitRT(end+1,1) = current_csv_table{matchIdx(5), "Var10"}; 
+                % decision_time(end+1,1) = RTs(end) - waitRT(end);
 
                 current_surprise_recognition_accuracy = current_csv_table_surprise{current_surprise_image, "Var3"}; 
 
@@ -1075,19 +1074,19 @@ if analyze_surprise == true
                     surprise_recognition_accuracy(end+1,1) = 1;
                 end
 
-                id_number(end+1,1) = id_number(end);
-                trial_number(end+1,1) = trial_number(end);
-                history(end+1,1) = history(end);
-                repetition(end+1,1) = repetition(end);
+                % id_number(end+1,1) = id_number(end);
+                % trial_number(end+1,1) = trial_number(end);
+                % history(end+1,1) = history(end);
+                % repetition(end+1,1) = repetition(end);
                 
-                context_change_command(end+1,1) = context_change_command(end);
-                interference_command(end+1,1) = interference_command(end);
-                interference_subtype(end+1,1) = interference_subtype(end);
-                surprise_recognition_accuracy(end+1,1) = surprise_recognition_accuracy(end);
+                % context_change_command(end+1,1) = context_change_command(end);
+                % interference_command(end+1,1) = interference_command(end);
+                % interference_subtype(end+1,1) = interference_subtype(end);
+                % surprise_recognition_accuracy(end+1,1) = surprise_recognition_accuracy(end);
 
 
 
-                phase(end+1,1) = 2;
+                % phase(end+1,1) = 2;
                     
                 accuracy_rates(end+1,1) = abs(current_csv_table_surprise{current_surprise_image, "Var4"});
                 RTs(end+1,1) = current_csv_table_surprise{current_surprise_image, "Var7"};
@@ -1109,8 +1108,8 @@ if analyze_surprise == true
             end
             
             % Combine all the data taken from the current participant
-            data_per_participant_surprise = [id_number, trial_number, repetition, phase, context_change_command, ...
-            interference_command, accuracy_rates, RTs, waitRT, decision_time, surprise_recognition_accuracy, interference_subtype];
+            data_per_participant_surprise = [id_number, trial_number, repetition, context_change_command, ...
+            interference_command, accuracy_rates, RTs, waitRT, decision_time, surprise_recognition_accuracy];
             
             
             % Add the individual's data to the general dataset

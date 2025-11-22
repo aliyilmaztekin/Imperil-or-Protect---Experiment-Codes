@@ -146,8 +146,6 @@ anova_clean <- anova_res$ANOVA %>%
 print(anova_clean)
 
 
-
-
 # Fit repeated-measures ANOVA model with the new factor 'interference'
 aov_model <- aov(
   DV ~ repetition * context * interference +
