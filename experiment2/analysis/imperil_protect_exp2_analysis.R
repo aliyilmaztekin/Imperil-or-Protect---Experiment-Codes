@@ -146,273 +146,273 @@ anova_clean <- anova_res$ANOVA %>%
 print(anova_clean)
 
 
-# Fit repeated-measures ANOVA model with the new factor 'interference'
-aov_model <- aov(
-  DV ~ repetition * context * interference +
-    Error(subject / (repetition * context * interference)),
-  data = combinedData_sub_means
-)
-
-# Estimated marginal means for context, separately by repetition and interference
-emm <- emmeans(aov_model, ~ interference | repetition * context, weights = "equal")
-
-
-posthoc_comp <- contrast(emm, method = "pairwise", adjust = "none")  # or adjust="holm"
-print(posthoc_comp)
-
-data_summary <- combinedData_sub_means %>%
-  group_by(repetition, context, interference) %>%
-  summarize(
-    mean_DV = mean(DV, na.rm = TRUE),
-    se_DV = sd(DV, na.rm = TRUE) / sqrt(n()),
-    .groups = "drop"
-  )
-
-
-
-
-
-
-# Rename context labels
-data_summary$context <- factor(
-  data_summary$context,
-  levels = c(0, 1),
-  labels = c("No Change", "Change")
-)
-
-# Rename interference labels
-data_summary$interference <- factor(
-  data_summary$interference,
-  levels = c(0, 1),
-  labels = c("No Interference", "Interference")
-)
-
-
-# -----------------------------
-# 6. Extract p-values from ANOVA
-# -----------------------------
-anova_table <- anova_clean
-
-p_repetition <- anova_table$p[anova_table$Effect == "repetition"]
-p_context <- anova_table$p[anova_table$Effect == "context"]
-p_interference <- anova_table$p[anova_table$Effect == "interference"]
-p_repetition_context <- anova_table$p[anova_table$Effect == "repetition:context"]
-p_repetition_interference <- anova_table$p[anova_table$Effect == "repetition:interference"]
-p_context_interference <- anova_table$p[anova_table$Effect == "context:interference"]
-p_three_way <- anova_table$p[anova_table$Effect == "repetition:context:interference"]
-
-anova_labels <- c(
-  paste0("Repetition p = ", signif(p_repetition, 3)),
-  paste0("Context p = ", signif(p_context, 3)),
-  paste0("Interference p = ", signif(p_interference, 3)),
-  paste0("Rep × Context p = ", signif(p_repetition_context, 3)),
-  paste0("Rep × Interf p = ", signif(p_repetition_interference, 3)),
-  paste0("Context × Interf p = ", signif(p_context_interference, 3)),
-  paste0("3-way p = ", signif(p_three_way, 3))
-)
-
-
-# -----------------------------
-# Compute partial eta squared for each effect
-# -----------------------------
-anova_table <- anova_res$ANOVA %>%
-  mutate(
-    # partial eta squared = SSn / (SSn + SSd)
-    eta_p2 = SSn / (SSn + SSd)
-  ) %>%
-  # Round numeric columns for readability
-  mutate(across(where(is.numeric), ~ round(.x, 3)))
-
-print(anova_table)
-
-# -----------------------------
-# Back-transform mean and SE
-# -----------------------------
-data_summary_bt <- data_summary %>%
-  mutate(
-    mean_DV_bt = exp(mean_DV) - 1,
-    se_DV_bt = (exp(mean_DV + se_DV) - 1) - mean_DV_bt
-  )
-
-# -----------------------------
-# Compute dynamic y-axis limits
-# -----------------------------
-y_max <- max(data_summary_bt$mean_DV_bt + data_summary_bt$se_DV_bt) * 1.1  # 10% extra space
-y_min <- min(data_summary_bt$mean_DV_bt - data_summary_bt$se_DV_bt) * 0.9  # 10% extra space
-
-# -----------------------------
-# Plot
-# -----------------------------
-ggplot(data_summary_bt,
-       aes(x = repetition, y = mean_DV_bt,
-           color = interference, shape = interference, group = interference)) +
-  geom_point(size = 3) +
-  geom_line() +
-  geom_errorbar(aes(ymin = mean_DV_bt - se_DV_bt, ymax = mean_DV_bt + se_DV_bt), width = 0.2) +
-  labs(
-    title = "Experiment 2: Repetition × Interference by Context",
-    x = "Repetition",
-    y = "DV (original scale)",
-    color = "Interference",
-    shape = "Interference"
-  ) +
-  theme_minimal(base_size = 14) +
-  facet_wrap(~ context) +
-  theme(strip.text = element_text(size = 12, face = "bold")) +
-  scale_y_continuous(limits = c(y_min, y_max), breaks = scales::pretty_breaks(n = 6))
-
-
-# Helper function to compute mean ± 95% CI in log space, then back-transform
-compute_backtransformed_CI <- function(df, group_vars) {
-  df %>%
-    group_by(across(all_of(group_vars))) %>%
-    summarize(
-      mean_log = mean(DV, na.rm = TRUE),
-      sd_log = sd(DV, na.rm = TRUE),
-      n = n(),
-      se_log = sd_log / sqrt(n),
-      ci_lower_log = mean_log - qt(0.975, n-1) * se_log,
-      ci_upper_log = mean_log + qt(0.975, n-1) * se_log,
-      .groups = "drop"
-    ) %>%
-    mutate(
-      mean = exp(mean_log) - 1,
-      ci_lower = exp(ci_lower_log) - 1,
-      ci_upper = exp(ci_upper_log) - 1
-    ) %>%
-    select(-mean_log, -sd_log, -se_log, -ci_lower_log, -ci_upper_log)
-}
-
-# -----------------------------
-# Main effects
-# -----------------------------
-repetition_stats <- compute_backtransformed_CI(combinedData_sub_means, "repetition")
-context_stats <- compute_backtransformed_CI(combinedData_sub_means, "context")
-interference_stats <- compute_backtransformed_CI(combinedData_sub_means, "interference")
-
-# -----------------------------
-# Two-way interactions
-# -----------------------------
-rep_context_stats <- compute_backtransformed_CI(combinedData_sub_means, c("repetition", "context"))
-rep_interference_stats <- compute_backtransformed_CI(combinedData_sub_means, c("repetition", "interference"))
-context_interference_stats <- compute_backtransformed_CI(combinedData_sub_means, c("context", "interference"))
-
-# -----------------------------
-# Three-way interaction
-# -----------------------------
-three_way_stats <- compute_backtransformed_CI(combinedData_sub_means, c("repetition", "context", "interference"))
-
-# # -----------------------------
-# # Print tables
-# # -----------------------------
-# print("Main effect: Repetition")
-# print(repetition_stats)
-# 
-# print("Main effect: Context")
-# print(context_stats)
-# 
-# print("Main effect: Interference")
-# print(interference_stats)
-# 
-# print("Interaction: Repetition × Context")
-# print(rep_context_stats)
-# 
-# print("Interaction: Repetition × Interference")
-# print(rep_interference_stats)
-# 
-# print("Interaction: Context × Interference")
-# print(context_interference_stats)
-# 
-# print("Three-way interaction: Repetition × Context × Interference")
-# print(three_way_stats)
-
-# 
-# # counts per interference level
-# table(combinedData_sub_means$interference)
-# 
-# # counts per repetition × interference × context (global)
-# ft <- with(combinedData_sub_means, 
-#            table(repetition, context, interference))
-# ft
-# 
-# # how many cells per subject (should be 8)
-# cells_per_subject <- combinedData_sub_means %>%
-#   group_by(subject) %>%
-#   summarize(n_cells = n(), .groups = "drop") %>%
-#   arrange(n_cells)
-# 
-# table(cells_per_subject$n_cells)   # distribution of number of cells per subject
-# cells_per_subject %>% filter(n_cells != 8)   # list subjects with missing cells
-# 
-# 
-# # full grid of expected combos
-# expected <- expand.grid(
-#   subject = unique(combinedData_sub_means$subject),
-#   repetition = unique(combinedData_sub_means$repetition),
-#   context = unique(combinedData_sub_means$context),
-#   interference = unique(combinedData_sub_means$interference),
-#   KEEP.OUT.ATTRS = FALSE,
-#   stringsAsFactors = FALSE
+# # Fit repeated-measures ANOVA model with the new factor 'interference'
+# aov_model <- aov(
+#   DV ~ repetition * context * interference +
+#     Error(subject / (repetition * context * interference)),
+#   data = combinedData_sub_means
 # )
 # 
-# # mark present rows
-# present <- combinedData_sub_means %>%
-#   mutate(present = TRUE) %>%
-#   select(subject, repetition, context, interference, present)
+# # Estimated marginal means for context, separately by repetition and interference
+# emm <- emmeans(aov_model, ~ interference | repetition * context, weights = "equal")
 # 
-# missing_cells <- expected %>%
-#   left_join(present, by = c("subject","repetition","context","interference")) %>%
-#   filter(is.na(present))
 # 
-# # show any missing combos
-# if(nrow(missing_cells) == 0) {
-#   message("No missing subject × repetition × context × interference cells (balanced).")
-# } else {
-#   message("Missing cells found (subject × repetition × context × interference):")
-#   print(missing_cells)
-# }
+# posthoc_comp <- contrast(emm, method = "pairwise", adjust = "none")  # or adjust="holm"
+# print(posthoc_comp)
 # 
-# combinedData %>%
-#   group_by(subject, repetition, context, interference) %>%
-#   summarise(n_trials = n(), .groups = "drop") %>%
-#   group_by(subject) %>%
-#   summarise(
-#     mean_trials = mean(n_trials),
-#     min_trials = min(n_trials),
-#     max_trials = max(n_trials),
-#     .groups = "drop"
-#   ) %>%
-#   arrange(min_trials)
-# 
-# # Summarize trial counts per condition
-# trial_counts <- combinedData %>%
+# data_summary <- combinedData_sub_means %>%
 #   group_by(repetition, context, interference) %>%
-#   summarise(
-#     n_trials = n(),
+#   summarize(
+#     mean_DV = mean(DV, na.rm = TRUE),
+#     se_DV = sd(DV, na.rm = TRUE) / sqrt(n()),
 #     .groups = "drop"
 #   )
 # 
 # 
-# trial_counts_filtered <- combinedData %>%
-#   filter(repetition %in% c(1,5)) %>%
-#   group_by(repetition, context, interference) %>%
-#   summarise(n_trials = n(), .groups = "drop")
-# 
-# trial_counts_filtered
 # 
 # 
 # 
 # 
+# # Rename context labels
+# data_summary$context <- factor(
+#   data_summary$context,
+#   levels = c(0, 1),
+#   labels = c("No Change", "Change")
+# )
 # 
-# # Visualize trial counts per condition
-# ggplot(trial_counts, aes(x = repetition, y = n_trials,
-#                          fill = interference)) +
-#   geom_bar(stat = "identity", position = "dodge") +
-#   facet_wrap(~ context, labeller = labeller(context = c(`0` = "No Change", `1` = "Change"))) +
+# # Rename interference labels
+# data_summary$interference <- factor(
+#   data_summary$interference,
+#   levels = c(0, 1),
+#   labels = c("No Interference", "Interference")
+# )
+# 
+# 
+# # -----------------------------
+# # 6. Extract p-values from ANOVA
+# # -----------------------------
+# anova_table <- anova_clean
+# 
+# p_repetition <- anova_table$p[anova_table$Effect == "repetition"]
+# p_context <- anova_table$p[anova_table$Effect == "context"]
+# p_interference <- anova_table$p[anova_table$Effect == "interference"]
+# p_repetition_context <- anova_table$p[anova_table$Effect == "repetition:context"]
+# p_repetition_interference <- anova_table$p[anova_table$Effect == "repetition:interference"]
+# p_context_interference <- anova_table$p[anova_table$Effect == "context:interference"]
+# p_three_way <- anova_table$p[anova_table$Effect == "repetition:context:interference"]
+# 
+# anova_labels <- c(
+#   paste0("Repetition p = ", signif(p_repetition, 3)),
+#   paste0("Context p = ", signif(p_context, 3)),
+#   paste0("Interference p = ", signif(p_interference, 3)),
+#   paste0("Rep × Context p = ", signif(p_repetition_context, 3)),
+#   paste0("Rep × Interf p = ", signif(p_repetition_interference, 3)),
+#   paste0("Context × Interf p = ", signif(p_context_interference, 3)),
+#   paste0("3-way p = ", signif(p_three_way, 3))
+# )
+# 
+# 
+# # -----------------------------
+# # Compute partial eta squared for each effect
+# # -----------------------------
+# anova_table <- anova_res$ANOVA %>%
+#   mutate(
+#     # partial eta squared = SSn / (SSn + SSd)
+#     eta_p2 = SSn / (SSn + SSd)
+#   ) %>%
+#   # Round numeric columns for readability
+#   mutate(across(where(is.numeric), ~ round(.x, 3)))
+# 
+# print(anova_table)
+# 
+# # -----------------------------
+# # Back-transform mean and SE
+# # -----------------------------
+# data_summary_bt <- data_summary %>%
+#   mutate(
+#     mean_DV_bt = exp(mean_DV) - 1,
+#     se_DV_bt = (exp(mean_DV + se_DV) - 1) - mean_DV_bt
+#   )
+# 
+# # -----------------------------
+# # Compute dynamic y-axis limits
+# # -----------------------------
+# y_max <- max(data_summary_bt$mean_DV_bt + data_summary_bt$se_DV_bt) * 1.1  # 10% extra space
+# y_min <- min(data_summary_bt$mean_DV_bt - data_summary_bt$se_DV_bt) * 0.9  # 10% extra space
+# 
+# # -----------------------------
+# # Plot
+# # -----------------------------
+# ggplot(data_summary_bt,
+#        aes(x = repetition, y = mean_DV_bt,
+#            color = interference, shape = interference, group = interference)) +
+#   geom_point(size = 3) +
+#   geom_line() +
+#   geom_errorbar(aes(ymin = mean_DV_bt - se_DV_bt, ymax = mean_DV_bt + se_DV_bt), width = 0.2) +
 #   labs(
-#     title = "Trial Counts per Condition",
+#     title = "Experiment 2: Repetition × Interference by Context",
 #     x = "Repetition",
-#     y = "Number of Trials",
-#     fill = "Interference"
+#     y = "DV (original scale)",
+#     color = "Interference",
+#     shape = "Interference"
 #   ) +
-#   theme_minimal(base_size = 14)
+#   theme_minimal(base_size = 14) +
+#   facet_wrap(~ context) +
+#   theme(strip.text = element_text(size = 12, face = "bold")) +
+#   scale_y_continuous(limits = c(y_min, y_max), breaks = scales::pretty_breaks(n = 6))
+# 
+# 
+# # Helper function to compute mean ± 95% CI in log space, then back-transform
+# compute_backtransformed_CI <- function(df, group_vars) {
+#   df %>%
+#     group_by(across(all_of(group_vars))) %>%
+#     summarize(
+#       mean_log = mean(DV, na.rm = TRUE),
+#       sd_log = sd(DV, na.rm = TRUE),
+#       n = n(),
+#       se_log = sd_log / sqrt(n),
+#       ci_lower_log = mean_log - qt(0.975, n-1) * se_log,
+#       ci_upper_log = mean_log + qt(0.975, n-1) * se_log,
+#       .groups = "drop"
+#     ) %>%
+#     mutate(
+#       mean = exp(mean_log) - 1,
+#       ci_lower = exp(ci_lower_log) - 1,
+#       ci_upper = exp(ci_upper_log) - 1
+#     ) %>%
+#     select(-mean_log, -sd_log, -se_log, -ci_lower_log, -ci_upper_log)
+# }
+# 
+# # -----------------------------
+# # Main effects
+# # -----------------------------
+# repetition_stats <- compute_backtransformed_CI(combinedData_sub_means, "repetition")
+# context_stats <- compute_backtransformed_CI(combinedData_sub_means, "context")
+# interference_stats <- compute_backtransformed_CI(combinedData_sub_means, "interference")
+# 
+# # -----------------------------
+# # Two-way interactions
+# # -----------------------------
+# rep_context_stats <- compute_backtransformed_CI(combinedData_sub_means, c("repetition", "context"))
+# rep_interference_stats <- compute_backtransformed_CI(combinedData_sub_means, c("repetition", "interference"))
+# context_interference_stats <- compute_backtransformed_CI(combinedData_sub_means, c("context", "interference"))
+# 
+# # -----------------------------
+# # Three-way interaction
+# # -----------------------------
+# three_way_stats <- compute_backtransformed_CI(combinedData_sub_means, c("repetition", "context", "interference"))
+# 
+# # # -----------------------------
+# # # Print tables
+# # # -----------------------------
+# # print("Main effect: Repetition")
+# # print(repetition_stats)
+# # 
+# # print("Main effect: Context")
+# # print(context_stats)
+# # 
+# # print("Main effect: Interference")
+# # print(interference_stats)
+# # 
+# # print("Interaction: Repetition × Context")
+# # print(rep_context_stats)
+# # 
+# # print("Interaction: Repetition × Interference")
+# # print(rep_interference_stats)
+# # 
+# # print("Interaction: Context × Interference")
+# # print(context_interference_stats)
+# # 
+# # print("Three-way interaction: Repetition × Context × Interference")
+# # print(three_way_stats)
+# 
+# # 
+# # # counts per interference level
+# # table(combinedData_sub_means$interference)
+# # 
+# # # counts per repetition × interference × context (global)
+# # ft <- with(combinedData_sub_means, 
+# #            table(repetition, context, interference))
+# # ft
+# # 
+# # # how many cells per subject (should be 8)
+# # cells_per_subject <- combinedData_sub_means %>%
+# #   group_by(subject) %>%
+# #   summarize(n_cells = n(), .groups = "drop") %>%
+# #   arrange(n_cells)
+# # 
+# # table(cells_per_subject$n_cells)   # distribution of number of cells per subject
+# # cells_per_subject %>% filter(n_cells != 8)   # list subjects with missing cells
+# # 
+# # 
+# # # full grid of expected combos
+# # expected <- expand.grid(
+# #   subject = unique(combinedData_sub_means$subject),
+# #   repetition = unique(combinedData_sub_means$repetition),
+# #   context = unique(combinedData_sub_means$context),
+# #   interference = unique(combinedData_sub_means$interference),
+# #   KEEP.OUT.ATTRS = FALSE,
+# #   stringsAsFactors = FALSE
+# # )
+# # 
+# # # mark present rows
+# # present <- combinedData_sub_means %>%
+# #   mutate(present = TRUE) %>%
+# #   select(subject, repetition, context, interference, present)
+# # 
+# # missing_cells <- expected %>%
+# #   left_join(present, by = c("subject","repetition","context","interference")) %>%
+# #   filter(is.na(present))
+# # 
+# # # show any missing combos
+# # if(nrow(missing_cells) == 0) {
+# #   message("No missing subject × repetition × context × interference cells (balanced).")
+# # } else {
+# #   message("Missing cells found (subject × repetition × context × interference):")
+# #   print(missing_cells)
+# # }
+# # 
+# # combinedData %>%
+# #   group_by(subject, repetition, context, interference) %>%
+# #   summarise(n_trials = n(), .groups = "drop") %>%
+# #   group_by(subject) %>%
+# #   summarise(
+# #     mean_trials = mean(n_trials),
+# #     min_trials = min(n_trials),
+# #     max_trials = max(n_trials),
+# #     .groups = "drop"
+# #   ) %>%
+# #   arrange(min_trials)
+# # 
+# # # Summarize trial counts per condition
+# # trial_counts <- combinedData %>%
+# #   group_by(repetition, context, interference) %>%
+# #   summarise(
+# #     n_trials = n(),
+# #     .groups = "drop"
+# #   )
+# # 
+# # 
+# # trial_counts_filtered <- combinedData %>%
+# #   filter(repetition %in% c(1,5)) %>%
+# #   group_by(repetition, context, interference) %>%
+# #   summarise(n_trials = n(), .groups = "drop")
+# # 
+# # trial_counts_filtered
+# # 
+# # 
+# # 
+# # 
+# # 
+# # # Visualize trial counts per condition
+# # ggplot(trial_counts, aes(x = repetition, y = n_trials,
+# #                          fill = interference)) +
+# #   geom_bar(stat = "identity", position = "dodge") +
+# #   facet_wrap(~ context, labeller = labeller(context = c(`0` = "No Change", `1` = "Change"))) +
+# #   labs(
+# #     title = "Trial Counts per Condition",
+# #     x = "Repetition",
+# #     y = "Number of Trials",
+# #     fill = "Interference"
+# #   ) +
+# #   theme_minimal(base_size = 14)

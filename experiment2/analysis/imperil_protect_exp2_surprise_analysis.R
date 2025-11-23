@@ -36,7 +36,7 @@ combinedData <- raw_data_data_frame
 # 2. Filter relevant IVs and log-transform DV
 # -----------------------------
 
-dependent_variable <- "angle"
+dependent_variable <- "rt"
 
 # # Choose epsilon based on DV
 epsilon <- 1e-6
@@ -100,4 +100,28 @@ model_acc <- glmer(
 )
 
 summary(model_acc)
+
+acc_summary <- combinedData_acc %>%
+  group_by(context, interference) %>%
+  summarise(
+    mean_acc = mean(as.numeric(as.character(binary_acc))),  # convert factor → numeric
+    n = n(),                                                # number of trials in cell
+    .groups = "drop"
+  ) %>%
+  mutate(
+    percent_acc = round(mean_acc * 100, 2)
+  )
+
+print(acc_summary)
+
+
+overall_acc <- combinedData_acc %>%
+  summarise(
+    overall = mean(as.numeric(as.character(binary_acc))),
+    percent = round(overall * 100, 2)
+  )
+
+print(overall_acc)
+
+
 

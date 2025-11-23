@@ -1,8 +1,8 @@
-experiment_handle = 2; % Which experiment do you wanna pull data from?
+experiment_handle = 3; % Which experiment do you wanna pull data from?
 
 analyze_main = false;
-analyze_surprise = true;
-analyze_sixlets = false;
+analyze_surprise = false;
+analyze_sixlets = true;
 
 % All analysis names are: 
 % Main analyses (ACC, RT, MRT) DONE
@@ -1775,26 +1775,36 @@ if analyze_sixlets == true
                         block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
                         repetition(end+1,1) = 1;
                         accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
-                        RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15));
-                        waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16));
-                        decision_time(end+1,1) = RTs(end) - waitRT(end);
+                        
                       
                         if current_mat_table.dataMatrix(current_trial, 11) == "No Change" && current_mat_table.dataMatrix(current_trial, 12) == "No Interference Presented"  
                             conditions(current_trial,1) = 1;
                             context(current_trial,1) = 0;
                             interference(current_trial,1) = 0;
+                            RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
+                            waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
+                            decision_time(end+1,1) = RTs(end) - waitRT(end);
                         elseif current_mat_table.dataMatrix(current_trial, 11) == "No Change" && current_mat_table.dataMatrix(current_trial, 12) ~= "No Interference Presented"   
                             conditions(current_trial,1) = 2;
                             context(current_trial,1) = 0;
                             interference(current_trial,1) = 1;
+                            RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.2;
+                            waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.2;
+                            decision_time(end+1,1) = RTs(end) - waitRT(end);
                         elseif current_mat_table.dataMatrix(current_trial, 11) == "Yes Change" && current_mat_table.dataMatrix(current_trial, 12) == "No Interference Presented"   
                             conditions(current_trial,1) = 3;
                             context(current_trial,1) = 1;
                             interference(current_trial,1) = 0;
+                            RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
+                            waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
+                            decision_time(end+1,1) = RTs(end) - waitRT(end);
                         elseif current_mat_table.dataMatrix(current_trial, 11) == "Yes Change" && current_mat_table.dataMatrix(current_trial, 12) ~= "No Interference Presented"   
                             conditions(current_trial,1) = 4;
                             context(current_trial,1) = 1;
                             interference(current_trial,1) = 1;
+                            RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.2;
+                            waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.2;
+                            decision_time(end+1,1) = RTs(end) - waitRT(end);
                         end
     
                      elseif mod(current_trial, 6) == 2
@@ -1846,26 +1856,35 @@ if analyze_sixlets == true
                         block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
                         repetition(end+1,1) = 5;
                         accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
-                        RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15));
-                        waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16));
-                        decision_time(end+1,1) = RTs(end) - waitRT(end);
     
                         if current_mat_table.dataMatrix(current_trial, 11) == "No Change" && current_mat_table.dataMatrix(current_trial, 12) == "No Interference Presented"  
                             conditions(current_trial,1) = 3;
                             context(current_trial,1) = 0;
                             interference(current_trial,1) = 0;
+                            RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
+                            waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
+                            decision_time(end+1,1) = RTs(end) - waitRT(end);
                         elseif current_mat_table.dataMatrix(current_trial, 11) == "No Change" && current_mat_table.dataMatrix(current_trial, 12) ~= "No Interference Presented"   
                             conditions(current_trial,1) = 4;
                             context(current_trial,1) = 0;
                             interference(current_trial,1) = 1;
+                            RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.2;
+                            waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.2;
+                            decision_time(end+1,1) = RTs(end) - waitRT(end);
                         elseif current_mat_table.dataMatrix(current_trial, 11) == "Yes Change" && current_mat_table.dataMatrix(current_trial, 12) == "No Interference Presented"   
                             conditions(current_trial,1) = 3;
                             context(current_trial,1) = 1;
                             interference(current_trial,1) = 0;
+                            RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
+                            waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
+                            decision_time(end+1,1) = RTs(end) - waitRT(end);
                         elseif current_mat_table.dataMatrix(current_trial, 11) == "Yes Change" && current_mat_table.dataMatrix(current_trial, 12) ~= "No Interference Presented"   
                             conditions(current_trial,1) = 4;
                             context(current_trial,1) = 1;
                             interference(current_trial,1) = 1;
+                            RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.2;
+                            waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.2;
+                            decision_time(end+1,1) = RTs(end) - waitRT(end);
                         end
                      
                      elseif mod(current_trial, 6) == 0
