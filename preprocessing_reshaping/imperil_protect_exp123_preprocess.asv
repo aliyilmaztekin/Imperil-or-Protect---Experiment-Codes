@@ -1,8 +1,8 @@
 experiment_handle = 3; % Which experiment do you wanna pull data from?
 
 analyze_main = false;
-analyze_surprise = true;
-analyze_sixlets = false;
+analyze_surprise = false;
+analyze_sixlets = true;
 
 % All analysis names are: 
 % Main analyses (ACC, RT, MRT) DONE
@@ -12,6 +12,7 @@ analyze_sixlets = false;
 % Sixlets (exp 1, 2 and 3, for ACC, RT and MRT) DONE
 % Factor subtype analyses (exp 1 - Context Change levels, exp 2 and 3 -
 % Interference subtypes). DONE
+
 
 if analyze_main == true
     if experiment_handle == 1
@@ -1124,17 +1125,11 @@ if analyze_surprise == true
     elseif experiment_handle == 3
         all_data_experiment3_surprise_anova = [];
 
-        % Root file address for experiment 3 data 
+        % Root file address for experiment 1 data 
         experiment3_data_dir = '/Users/ali/Desktop/visual imperil project/visuals imperil protect - CODE, STIMULI AND MORE/data_experiment3_mat/';
         
         % Total subject number
         sample_size = 53;
-
-        % Count how many people are missing the surprise task
-        skip_participant = 0;
-
-        % Count how many incongruent trials there were
-        incongruent_target = 0;
 
         for current_surprise_participant = 1:sample_size
             if current_surprise_participant == 8
@@ -1152,7 +1147,6 @@ if analyze_surprise == true
             % Check if both files exist
             if exist(current_data_dir_surprise, 'file') ~= 2 || exist(current_data_dir, 'file') ~= 2
                 fprintf('Skipping participant %d: one or both files are missing.\n', current_surprise_participant);
-                skip_participant = skip_participant + 1;
                 continue;
             end
         
@@ -1160,6 +1154,7 @@ if analyze_surprise == true
             current_mat_table_surprise = load(current_data_dir_surprise);
             current_mat_table = load(current_data_dir);
                       
+    
             %%Create number vectors to store data/ Empty the contents for the next participant
             current_change_value = ""; 
             current_interference_value = ""; 
@@ -1182,8 +1177,11 @@ if analyze_surprise == true
             interference_subtype = [];
             studied_before = [];
 
-            current_surprise_recognition_accuracy = 0;           
-            
+            current_surprise_recognition_accuracy = 0;
+
+            incongruent_target = 0;
+    
+    
             %% Since experiment 3 surprise task was a bit broken, this bit filters out...
             %% surprise images that were not presented in the main task, as well as targets... 
             %% images taken as foils 
@@ -1295,7 +1293,7 @@ if analyze_surprise == true
                 trial_number(end+1,1) = current_surprise_image;
 
                 repetition(end+1,1) = str2double(current_mat_table.dataMatrix(matchIdx(5), 3));
-                % phase(end+1,1) = 1;
+                phase(end+1,1) = 1;
     
                 % Since change commands are saved as strings, convert to numeric
                 % values
@@ -1312,26 +1310,26 @@ if analyze_surprise == true
                 if current_interference_value == "No Interference Presented"
                     interference_command(end+1,1) = 0;
                     interference_subtype(end+1, 1) = NaN;
-                    % RTs(end+1,1) = str2double(current_mat_table.dataMatrix(matchIdx(5), 15)) - 0.9;
-                    % waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(matchIdx(5), 16)) - 0.9;
-                    % decision_time(end+1,1) = RTs(end) - waitRT(end);
+                    RTs(end+1,1) = str2double(current_mat_table.dataMatrix(matchIdx(5), 15)) - 0.9;
+                    waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(matchIdx(5), 16)) - 0.9;
+                    decision_time(end+1,1) = RTs(end) - waitRT(end);
                 elseif current_interference_value == "Unique Interference" % All RGBs are unique
                     interference_command(end+1,1) = 1;
                     interference_subtype(end+1, 1) = 1;
-                    % RTs(end+1,1) = str2double(current_mat_table.dataMatrix(matchIdx(5), 15)) - 0.2;
-                    % waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(matchIdx(5), 16)) - 0.2;
-                    % decision_time(end+1,1) = RTs(end) - waitRT(end);
+                    RTs(end+1,1) = str2double(current_mat_table.dataMatrix(matchIdx(5), 15)) - 0.2;
+                    waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(matchIdx(5), 16)) - 0.2;
+                    decision_time(end+1,1) = RTs(end) - waitRT(end);
 
                 elseif current_interference_value == "Different Interference" % Two RGBs repeat
                     interference_command(end+1,1) = 1;
                     interference_subtype(end+1, 1) = 2;
-                    % RTs(end+1,1) = str2double(current_mat_table.dataMatrix(matchIdx(5), 15)) - 0.2;
-                    % waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(matchIdx(5), 16)) - 0.2;
-                    % decision_time(end+1,1) = RTs(end) - waitRT(end);
+                    RTs(end+1,1) = str2double(current_mat_table.dataMatrix(matchIdx(5), 15)) - 0.2;
+                    waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(matchIdx(5), 16)) - 0.2;
+                    decision_time(end+1,1) = RTs(end) - waitRT(end);
                 end
     
-                % % Fetch ACC and RTs from the main task
-                % accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(matchIdx(5), 14)));
+                % Fetch ACC and RTs from the main task
+                accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(matchIdx(5), 14)));
                 
                 current_surprise_recognition_accuracy = str2double(current_mat_table_surprise.dataMatrix2(current_surprise_image, 3)); 
                     
@@ -1341,17 +1339,17 @@ if analyze_surprise == true
                     surprise_recognition_accuracy(end+1,1) = 1;
                 end
 
-                % id_number(end+1,1) = id_number(end);
-                % trial_number(end+1,1) = trial_number(end);
-                % history(end+1,1) = history(end);
-                % repetition(end+1,1) = repetition(end);
+                id_number(end+1,1) = id_number(end);
+                trial_number(end+1,1) = trial_number(end);
+                history(end+1,1) = history(end);
+                repetition(end+1,1) = repetition(end);
                 
-                % context_change_command(end+1,1) = context_change_command(end);
-                % interference_command(end+1,1) = interference_command(end);
-                % interference_subtype(end+1,1) = interference_subtype(end);
-                % surprise_recognition_accuracy(end+1,1) = surprise_recognition_accuracy(end);
+                context_change_command(end+1,1) = context_change_command(end);
+                interference_command(end+1,1) = interference_command(end);
+                interference_subtype(end+1,1) = interference_subtype(end);
+                surprise_recognition_accuracy(end+1,1) = surprise_recognition_accuracy(end);
 
-                % phase(end+1,1) = 2;
+                phase(end+1,1) = 2;
         
                 % Fetch ACC and RTs for the same image from the surprise task
                 accuracy_rates(end+1,1) = abs(str2double(current_mat_table_surprise.dataMatrix2(current_surprise_image, 4)));
@@ -1372,10 +1370,12 @@ if analyze_surprise == true
                 % end
 
             end
-  
+            
+            
             %Combine all the number vectors to construct the participant's dataset
-            data_per_participant_surprise = [id_number, trial_number, repetition, context_change_command, ...
-            interference_command, accuracy_rates, RTs, waitRT, decision_time, surprise_recognition_accuracy];
+            data_per_participant_surprise = [id_number, trial_number, repetition, phase, context_change_command, ...
+            interference_command, accuracy_rates, RTs, waitRT, decision_time, surprise_recognition_accuracy, interference_subtype];
+            
             
             % Add each participant's dataset to the existing one
             all_data_experiment3_surprise_anova = [all_data_experiment3_surprise_anova; data_per_participant_surprise];
@@ -1383,10 +1383,7 @@ if analyze_surprise == true
 
         % When done with extracting data for experiment 3, save it as a mat file
         % for analysis
-        save('/Users/ali/Desktop/visual imperil project/imperil_all_analyses_data/all_data_experiment3_surprise_anova.mat', 'all_data_experiment3_surprise_anova');
-        
-        disp(skip_participant);
-        disp(incongruent_target);
+                save('/Users/ali/Desktop/visual imperil project/imperil_all_analyses_data/all_data_experiment3_surprise_anova.mat', 'all_data_experiment3_surprise_anova');
     end
 end
 

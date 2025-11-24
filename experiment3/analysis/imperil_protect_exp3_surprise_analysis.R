@@ -78,11 +78,16 @@ anovaResult <- ezANOVA(
 )
 
 anova_clean <- anovaResult$ANOVA %>%
-  mutate(across(where(is.numeric), ~ round(.x, 3)))  # keep 3 decimals
+  mutate(
+    eta_p2 = SSn / (SSn + SSd)
+  ) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3)))
 
 print(anova_clean)
 
 
+
+### GENERALIZED MIXED MODEL: RECOGNITION TASK
 
 combinedData_acc <- combinedData %>%
   mutate(
@@ -100,4 +105,29 @@ model_acc <- glmer(
 )
 
 summary(model_acc)
+
+
+acc_summary <- combinedData_acc %>%
+  group_by(context, interference) %>%
+  summarise(
+    mean_acc = mean(as.numeric(as.character(binary_acc))),  # convert factor → numeric
+    n = n(),                                                # number of trials in cell
+    .groups = "drop"
+  ) %>%
+  mutate(
+    percent_acc = round(mean_acc * 100, 2)
+  )
+
+print(acc_summary)
+
+
+overall_acc <- combinedData_acc %>%
+  summarise(
+    overall = mean(as.numeric(as.character(binary_acc))),
+    percent = round(overall * 100, 2)
+  )
+
+print(overall_acc)
+
+
 
