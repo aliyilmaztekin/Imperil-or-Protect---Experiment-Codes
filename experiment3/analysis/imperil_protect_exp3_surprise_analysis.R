@@ -66,6 +66,29 @@ combinedData_sub <- combinedData_sub %>%
 
 print(nrow(combinedData_sub))
 
+# -----------------------------
+# 4. Fit the Linear Mixed Model
+# -----------------------------
+
+# Full model with random intercepts AND random slopes (if it converges)
+model_lmm <- lmer(
+  DV ~ context * interference + 
+    (1 + context + interference | subject), 
+  data = combinedData_sub,
+  REML = FALSE
+)
+
+summary(model_lmm)
+anova(model_lmm)
+
+
+
+
+
+
+
+
+
 
 # trial-level data → RM ANOVA
 anovaResult <- ezANOVA(
@@ -97,6 +120,17 @@ combinedData_acc <- combinedData %>%
     binary_acc = as.factor(binary_acc)
   )
 
+# # -----------------------------------------------------------
+# # TRIAL COUNTS PER SUBJECT PER CONDITION
+# # -----------------------------------------------------------
+# trial_counts <- combinedData_acc %>%
+#   group_by(subject, context, interference) %>%
+#   summarise(n_trials = n(), .groups = "drop") %>%
+#   arrange(subject, context, interference)
+# 
+# print(n = 500, trial_counts)
+
+
 # Fit logistic mixed model
 model_acc <- glmer(
   binary_acc ~ context * interference + (1 | subject),
@@ -105,7 +139,6 @@ model_acc <- glmer(
 )
 
 summary(model_acc)
-
 
 acc_summary <- combinedData_acc %>%
   group_by(context, interference) %>%
@@ -119,7 +152,6 @@ acc_summary <- combinedData_acc %>%
   )
 
 print(acc_summary)
-
 
 overall_acc <- combinedData_acc %>%
   summarise(
