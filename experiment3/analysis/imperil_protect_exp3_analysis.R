@@ -81,9 +81,6 @@ data_RMAnova <- combinedData_sub %>%
   group_by(subject, repetition, context, interference) %>%
   summarize(mean_DV = mean(DV), .groups = "drop")
 
-
-
-
 anova_res <- ezANOVA(
   data = data_RMAnova,
   dv = mean_DV,             # <- use the actual column name
@@ -94,9 +91,27 @@ anova_res <- ezANOVA(
 )
 
 anova_clean <- anova_res$ANOVA %>%
-  mutate(across(where(is.numeric), ~ round(.x, 3)))  # keep 3 decimals
+  mutate(
+    eta_p2 = SSn / (SSn + SSd)
+  ) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3)))
 
 print(anova_clean)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ggplot(data_RMAnova,
        aes(x = repetition,
@@ -113,6 +128,23 @@ ggplot(data_RMAnova,
     color = "Interference"
   ) +
   theme_bw(base_size = 14)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # # Fit repeated-measures ANOVA model with the new factor 'interference'

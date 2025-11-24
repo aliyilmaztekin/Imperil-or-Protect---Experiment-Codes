@@ -66,56 +66,9 @@ combinedData_sub <- combinedData_sub %>%
     repetition %in% c(1, 5),
     context %in% c(0, 1),
     interference %in% c(0, 1)
-  ) %>%
-
-
-
-
-
-
-#### CHECK FOR TRIAL DISTRIBUTION BALANCE ####
-# -----------------------------
-# 4. Compute trial counts per participant per condition (after outlier removal)
-# -----------------------------
-trial_counts <- combinedData_sub %>%
-  group_by(subject, repetition, context, interference) %>%
-  summarize(n_trials = n(), .groups = "drop")
-
-# Summary statistics across conditions
-imbalance_summary <- trial_counts %>%
-  group_by(repetition, context, interference) %>%
-  summarize(
-    mean_trials = mean(n_trials),
-    sd_trials   = sd(n_trials),
-    min_trials  = min(n_trials),
-    max_trials  = max(n_trials),
-    .groups = "drop"
   )
 
-# Participant-level imbalance
-participant_imbalance <- trial_counts %>%
-  group_by(subject) %>%
-  summarize(
-    range_within_participant = max(n_trials) - min(n_trials),
-    .groups = "drop"
-  )
 
-# Overall coefficient of variation
-overall_cv <- sd(trial_counts$n_trials) / mean(trial_counts$n_trials)
-
-# Print summaries
-print(imbalance_summary)
-print(participant_imbalance)
-print(overall_cv)
-
-# -----------------------------
-# 5. Flag participants with low trial counts (<20)
-# -----------------------------
-low_trial_participants <- trial_counts %>%
-  filter(n_trials < 15) %>%
-  distinct(subject)
-
-print(low_trial_participants)
 
 # -----------------------------
 # 6. Create RM-ANOVA dataset (per-participant per-condition averages)
@@ -124,15 +77,8 @@ data_RMAnova <- combinedData_sub %>%
   group_by(subject, repetition, context, interference) %>%
   summarize(mean_DV = mean(DV), .groups = "drop")
 
-# Optionally, exclude low-trial participants for sensitivity analysis:
-data_RMAnova_clean <- data_RMAnova %>%
-  filter(!subject %in% low_trial_participants$subject)
-
-#### CHECK FOR TRIAL DISTRIBUTION BALANCE ####
-
-
 anova_res <- ezANOVA(
-  data = data_RMAnova_clean,
+  data = data_RMAnova,
   dv = mean_DV,             # <- use the actual column name
   wid = subject,
   within = .(repetition, context, interference),
@@ -141,9 +87,78 @@ anova_res <- ezANOVA(
 )
 
 anova_clean <- anova_res$ANOVA %>%
-  mutate(across(where(is.numeric), ~ round(.x, 3)))  # keep 3 decimals
+  mutate(
+    eta_p2 = SSn / (SSn + SSd)
+  ) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3)))
 
 print(anova_clean)
+
+
+
+
+
+
+# #### CHECK FOR TRIAL DISTRIBUTION BALANCE ####
+# # -----------------------------
+# # 4. Compute trial counts per participant per condition (after outlier removal)
+# # -----------------------------
+# trial_counts <- combinedData_sub %>%
+#   group_by(subject, repetition, context, interference) %>%
+#   summarize(n_trials = n(), .groups = "drop")
+# 
+# # Summary statistics across conditions
+# imbalance_summary <- trial_counts %>%
+#   group_by(repetition, context, interference) %>%
+#   summarize(
+#     mean_trials = mean(n_trials),
+#     sd_trials   = sd(n_trials),
+#     min_trials  = min(n_trials),
+#     max_trials  = max(n_trials),
+#     .groups = "drop"
+#   )
+# 
+# # Participant-level imbalance
+# participant_imbalance <- trial_counts %>%
+#   group_by(subject) %>%
+#   summarize(
+#     range_within_participant = max(n_trials) - min(n_trials),
+#     .groups = "drop"
+#   )
+# 
+# # Overall coefficient of variation
+# overall_cv <- sd(trial_counts$n_trials) / mean(trial_counts$n_trials)
+# 
+# # Print summaries
+# print(imbalance_summary)
+# print(participant_imbalance)
+# print(overall_cv)
+# 
+# # -----------------------------
+# # 5. Flag participants with low trial counts (<20)
+# # -----------------------------
+# low_trial_participants <- trial_counts %>%
+#   filter(n_trials < 15) %>%
+#   distinct(subject)
+# 
+# print(low_trial_participants)
+# 
+# # -----------------------------
+# # 6. Create RM-ANOVA dataset (per-participant per-condition averages)
+# # -----------------------------
+# data_RMAnova <- combinedData_sub %>%
+#   group_by(subject, repetition, context, interference) %>%
+#   summarize(mean_DV = mean(DV), .groups = "drop")
+# 
+# # Optionally, exclude low-trial participants for sensitivity analysis:
+# data_RMAnova_clean <- data_RMAnova %>%
+#   filter(!subject %in% low_trial_participants$subject)
+
+#### CHECK FOR TRIAL DISTRIBUTION BALANCE ####
+
+
+
+
 
 
 # # Fit repeated-measures ANOVA model with the new factor 'interference'

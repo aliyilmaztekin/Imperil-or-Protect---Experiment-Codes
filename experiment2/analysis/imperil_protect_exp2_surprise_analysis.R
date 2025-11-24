@@ -78,11 +78,16 @@ anovaResult <- ezANOVA(
 )
 
 anova_clean <- anovaResult$ANOVA %>%
-  mutate(across(where(is.numeric), ~ round(.x, 3)))  # keep 3 decimals
+  mutate(
+    eta_p2 = SSn / (SSn + SSd)
+  ) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3)))
 
 print(anova_clean)
 
 
+
+### GENERALIZED MIXED MODEL: RECOGNITION TASK
 
 combinedData_acc <- combinedData %>%
   mutate(
@@ -100,6 +105,7 @@ model_acc <- glmer(
 )
 
 summary(model_acc)
+
 
 acc_summary <- combinedData_acc %>%
   group_by(context, interference) %>%
