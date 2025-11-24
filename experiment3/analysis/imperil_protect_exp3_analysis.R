@@ -8,6 +8,7 @@ library(ez)
 library(ggplot2)
 library(moments)
 library(emmeans)
+library(Rmisc)
 options(scipen = 999)  # Avoid scientific notation
 
 # -----------------------------
@@ -33,19 +34,20 @@ combinedData <- raw_data_data_frame
 # 2. Filter relevant IVs and log-transform DV
 # -----------------------------
 
-dependent_variable <- "rt"
+dependent_variable <- "angle"
 
 # Choose epsilon based on DV
 epsilon <- ifelse(dependent_variable == "angle", 1e-6, 0)
 
 combinedData_sub <- combinedData %>%
   mutate(
-    DV = log(.data[[dependent_variable]] + epsilon),  # add epsilon only if needed
+    DV = log(combinedData[[dependent_variable]] + epsilon),
     repetition = factor(repetition),
     context = factor(context),
     interference = factor(interference)
   ) %>%
   filter(!is.na(DV))
+
 
 # -----------------------------
 # 3. Remove outliers per participant (±2.5 SD)
@@ -67,19 +69,15 @@ combinedData_sub <- combinedData_sub %>%
     context %in% c(0, 1),
     interference %in% c(0, 1)
   )
-  
-  
-  
-  
 
 
 
-# -----------------------------
-# 6. Create RM-ANOVA dataset (per-participant per-condition averages)
-# -----------------------------
 data_RMAnova <- combinedData_sub %>%
   group_by(subject, repetition, context, interference) %>%
-  summarize(mean_DV = mean(DV), .groups = "drop")
+  summarize(mean_DV = mean(DV), .groups = "keep")   # keep preserves columns
+
+
+data_RMAnova$subject <- factor(data_RMAnova$subject)
 
 anova_res <- ezANOVA(
   data = data_RMAnova,
@@ -97,6 +95,38 @@ anova_clean <- anova_res$ANOVA %>%
   mutate(across(where(is.numeric), ~ round(.x, 3)))
 
 print(anova_clean)
+
+
+
+descriptives <- summarySE(
+  data_RMAnova,
+  measurevar = "mean_DV",
+  groupvars = c("repetition", "context", "interference")
+)
+
+descriptives <- descriptives %>%
+  mutate(
+    mean_raw = exp(mean_DV) - epsilon,
+    ci_raw_lower = exp(mean_DV - ci) - epsilon,
+    ci_raw_upper = exp(mean_DV + ci) - epsilon,
+    se_raw = (exp(mean_DV) * se)             # approximate delta-method
+  )
+
+print(descriptives)
+
+emm_raw <- emmeans(aov_model, ~ repetition * context * interference,
+                   type = "response")
+
+emm_raw_adj <- emm_raw %>%
+  as.data.frame() %>%
+  mutate(
+    response = response - epsilon,
+    lower.CL = lower.CL - epsilon,
+    upper.CL = upper.CL - epsilon
+  )
+
+
+
 
 
 
