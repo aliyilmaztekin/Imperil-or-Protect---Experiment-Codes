@@ -15,11 +15,11 @@ options(scipen = 999)  # Avoid scientific notation
 # -----------------------------
 # 1. Load MAT files
 # -----------------------------
-raw_data <- "/Users/ali/Desktop/visual imperil project/imperil_all_analyses_data/all_data_experiment2_surprise_anova.mat"
+raw_data <- "/Users/ali/Desktop/visual imperil project/imperil_all_analyses_data/all_data_experiment1_surprise_anova.mat"
 raw_data_read <- readMat(raw_data)
 
 # Extract numeric matrix and convert to data frame
-raw_data_matrix <- raw_data_read$all.data.experiment2.surprise.anova
+raw_data_matrix <- raw_data_read$all.data.experiment1.surprise.anova
 raw_data_data_frame <- as.data.frame(raw_data_matrix)
 
 # Assign column names

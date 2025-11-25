@@ -8,7 +8,6 @@ library(ez)
 library(ggplot2)
 library(moments)
 library(emmeans)
-library(Rmisc)
 options(scipen = 999)  # Avoid scientific notation
 
 # -----------------------------
@@ -34,10 +33,10 @@ combinedData <- raw_data_data_frame
 # 2. Filter relevant IVs and log-transform DV
 # -----------------------------
 
-dependent_variable <- "angle"
+dependent_variable <- "rt"
 
 # Choose epsilon based on DV
-epsilon <- ifelse(dependent_variable == "angle", 1e-6, 0)
+epsilon <- ifelse(dependent_variable == "angle", 1e-6, 1e-6)
 
 combinedData_sub <- combinedData %>%
   mutate(
@@ -53,7 +52,7 @@ combinedData_sub <- combinedData %>%
 # 3. Remove outliers per participant (±2.5 SD)
 # -----------------------------
 combinedData_sub <- combinedData_sub %>%
-  group_by(subject, context, interference) %>%
+  group_by(subject) %>%
   mutate(mean_DV = mean(DV, na.rm = TRUE),
          sd_DV   = sd(DV, na.rm = TRUE)) %>%
   ungroup() %>%
@@ -71,13 +70,10 @@ combinedData_sub <- combinedData_sub %>%
   )
 
 
-
 data_RMAnova <- combinedData_sub %>%
   group_by(subject, repetition, context, interference) %>%
-  summarize(mean_DV = mean(DV), .groups = "keep")   # keep preserves columns
+  summarize(mean_DV = mean(DV), .groups = "keep")  # drop grouping after summarizing
 
-
-data_RMAnova$subject <- factor(data_RMAnova$subject)
 
 anova_res <- ezANOVA(
   data = data_RMAnova,
@@ -97,35 +93,62 @@ anova_clean <- anova_res$ANOVA %>%
 print(anova_clean)
 
 
+### To obtain descriptive statistics, you need to repeat the above pipeline with raw values
 
-descriptives <- summarySE(
-  data_RMAnova,
-  measurevar = "mean_DV",
-  groupvars = c("repetition", "context", "interference")
-)
-
-descriptives <- descriptives %>%
+# Store the relevant data
+combinedData_desc <- combinedData %>%
   mutate(
-    mean_raw = exp(mean_DV) - epsilon,
-    ci_raw_lower = exp(mean_DV - ci) - epsilon,
-    ci_raw_upper = exp(mean_DV + ci) - epsilon,
-    se_raw = (exp(mean_DV) * se)             # approximate delta-method
+    DV_raw = .data[[dependent_variable]],   # <-- raw values
+    repetition   = factor(repetition),
+    context      = factor(context),
+    interference = factor(interference)
+  ) %>%
+  filter(!is.na(DV_raw))
+
+# Outlier rejection
+combinedData_desc <- combinedData_desc %>%
+  group_by(subject, repetition, context, interference) %>%
+  mutate(
+    mean_raw = mean(DV_raw, na.rm = TRUE),
+    sd_raw   = sd(DV_raw, na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  filter(
+    DV_raw >= (mean_raw - 2.5 * sd_raw) &
+      DV_raw <= (mean_raw + 2.5 * sd_raw)
+  ) %>%
+  select(-mean_raw, -sd_raw)
+
+# Subset the data down to the critical trials
+combinedData_desc <- combinedData_desc %>%
+  filter(
+    repetition %in% c(1, 5),
+    context %in% c(0, 1),
+    interference %in% c(0, 1)
+  )
+
+# Compute descriptive stats for each condition (means and SDs)
+descriptives <- combinedData_desc %>%
+  group_by(repetition, context, interference) %>%
+  summarize(
+    mean_raw = mean(DV_raw, na.rm = TRUE),
+    sd_raw   = sd(DV_raw, na.rm = TRUE),
+    n        = n(),
+    .groups = "drop"
   )
 
 print(descriptives)
 
-emm_raw <- emmeans(aov_model, ~ repetition * context * interference,
-                   type = "response")
-
-emm_raw_adj <- emm_raw %>%
-  as.data.frame() %>%
-  mutate(
-    response = response - epsilon,
-    lower.CL = lower.CL - epsilon,
-    upper.CL = upper.CL - epsilon
+# This is the same analysis as the one above, but now computed for each participant separately
+descriptives_participant <- combinedData_desc %>%
+  group_by(subject, repetition, context, interference) %>%
+  summarize(mean_raw = mean(DV_raw), .groups = "drop") %>%
+  group_by(repetition, context, interference) %>%
+  summarize(
+    grand_mean = mean(mean_raw),
+    grand_sd   = sd(mean_raw),
+    .groups = "drop"
   )
-
-
 
 
 

@@ -51,7 +51,7 @@ combinedData_sub <- combinedData %>%
 # 3. Remove outliers per participant (±2.5 SD)
 # -----------------------------
 combinedData_sub <- combinedData_sub %>%
-  group_by(subject, context, interference) %>%
+  group_by(subject) %>%
   mutate(mean_DV = mean(DV, na.rm = TRUE),
          sd_DV   = sd(DV, na.rm = TRUE)) %>%
   ungroup() %>%
@@ -92,6 +92,66 @@ anova_clean <- anova_res$ANOVA %>%
   mutate(across(where(is.numeric), ~ round(.x, 3)))
 
 print(anova_clean)
+
+
+### To obtain descriptive statistics, you need to repeat the above pipeline with raw values
+
+# Store the relevant data
+combinedData_desc <- combinedData %>%
+  mutate(
+    DV_raw = .data[[dependent_variable]],   # <-- raw values
+    repetition   = factor(repetition),
+    context      = factor(context),
+    interference = factor(interference)
+  ) %>%
+  filter(!is.na(DV_raw))
+
+# Outlier rejection
+combinedData_desc <- combinedData_desc %>%
+  group_by(subject, repetition, context, interference) %>%
+  mutate(
+    mean_raw = mean(DV_raw, na.rm = TRUE),
+    sd_raw   = sd(DV_raw, na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  filter(
+    DV_raw >= (mean_raw - 2.5 * sd_raw) &
+      DV_raw <= (mean_raw + 2.5 * sd_raw)
+  ) %>%
+  select(-mean_raw, -sd_raw)
+
+# Subset the data down to the critical trials
+combinedData_desc <- combinedData_desc %>%
+  filter(
+    repetition %in% c(1, 5),
+    context %in% c(0, 1),
+    interference %in% c(0, 1)
+  )
+
+# Compute descriptive stats for each condition (means and SDs)
+descriptives <- combinedData_desc %>%
+  group_by(repetition, context, interference) %>%
+  summarize(
+    mean_raw = mean(DV_raw, na.rm = TRUE),
+    sd_raw   = sd(DV_raw, na.rm = TRUE),
+    n        = n(),
+    .groups = "drop"
+  )
+
+print(descriptives)
+
+# This is the same analysis as the one above, but now computed for each participant separately
+descriptives_participant <- combinedData_desc %>%
+  group_by(subject, repetition, context, interference) %>%
+  summarize(mean_raw = mean(DV_raw), .groups = "drop") %>%
+  group_by(repetition, context, interference) %>%
+  summarize(
+    grand_mean = mean(mean_raw),
+    grand_sd   = sd(mean_raw),
+    .groups = "drop"
+  )
+
+
 
 
 ggplot(data_RMAnova,
