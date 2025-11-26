@@ -1,6 +1,8 @@
 # Imperil or Protect - Experiment 2 - Analysis
 # Coded by A.Y. 
 
+### SETUP/PARAMETERS
+
 # Install/load libraries
 library(R.matlab)
 library(dplyr)
@@ -11,9 +13,6 @@ library(moments)
 library(emmeans)
 library(stringr)
 options(scipen = 999)  # Avoid scientific notation
-
-
-### SET-UP
 
 # 1) Load MAT files
 raw_data <- "/Users/ali/Desktop/visual imperil project/imperil_all_analyses_data/all_data_experiment2_sixlets_anova.mat"
@@ -37,7 +36,7 @@ combinedData <- raw_data_data_frame
 ### PREPROCESSING
 
 # 1) Put in your DV and IVs
-dependent_variable <- "angle"
+dependent_variable <- "rt"
 independent_variables <- c("repetition", "context", "interference")
 
 # 2) Log-transform your dependent variable? Check true if yes. 
@@ -120,7 +119,6 @@ combinedData_desc <- combinedData_desc %>%
   )
 
 # 4) Finally, compute means and SDs for each condition. 
-# These values should be reported in the Results section, and should be followed by ANOVA results 
 descriptives <- combinedData_desc %>%
   group_by(repetition, context, interference) %>%
   summarize(
@@ -130,12 +128,14 @@ descriptives <- combinedData_desc %>%
     .groups = "drop"
   )
 
+# These values should be reported in the Results section as a leisurely exploration into your data
+# Then should be followed by ANOVA results 
 print(descriptives)
 
 ## INFERENTIAL ANALYSIS
 
 # 1) First, convert your data frame into a format that ANOVA can work with. 
-# The following does that by grouping your data into conditions 
+# The following does that by grouping your data into experimental conditions 
 # and computing the average outcome values for each. 
 
 data_RMAnova <- combinedData_sub %>%
@@ -152,13 +152,14 @@ anova_res <- ezANOVA(
   detailed = TRUE
 )
 
-# 3) Add effect sizes to the table, also edit everything for better readability
+# 3) Add effect sizes to the table, also edit the numbers for better readability
 anova_clean <- anova_res$ANOVA %>%
   mutate(
     eta_p2 = SSn / (SSn + SSd)
   ) %>%
   mutate(across(where(is.numeric), ~ round(.x, 3)))
 
+# Report these as your ANOVA results
 print(anova_clean)
 
 ### ESTIMATED MARGINAL MEANS
@@ -207,6 +208,7 @@ for (effect in 1:length(sig_effects)) {
       ) %>%
       select(all_of(factor_name), emmean_orig, lower.CL_orig, upper.CL_orig)
     
+    # Report these as your EMM results
     print(emm_one_way_back_clean)
     
   } else if (str_count(sig_effects[effect], fixed(":")) == 1) {
@@ -241,6 +243,7 @@ for (effect in 1:length(sig_effects)) {
       ) %>%
       select(all_of(factors), emmean_orig, lower.CL_orig, upper.CL_orig)
     
+    # Report these as your EMM results
     print(emm_two_way_back_clean)
     
   } else if (str_count(sig_effects[effect], fixed(":")) == 2) {
@@ -275,7 +278,7 @@ for (effect in 1:length(sig_effects)) {
       ) %>%
       select(all_of(factors), emmean_orig, lower.CL_orig, upper.CL_orig)
     
-    # See the results
+    # Report these as your EMM results
     print(emm_three_way_back_clean)
   }
 }
@@ -286,6 +289,8 @@ for (effect in 1:length(sig_effects)) {
 # The rule of thumb according to APA is this: If one or more main effect(s) 
 # are part of a two or three way interaction, include them all in a single plot.  
 # If a main effect is not a part of an interaction, plot it separately. 
+# e.g. You have 4 significant effects: Repetition, Context, Interference and Repetition:Interference
+# You need to plot 2 emms: Context and Repetition:Interference
 
 
 
