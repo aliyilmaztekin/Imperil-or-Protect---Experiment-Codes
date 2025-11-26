@@ -33,7 +33,7 @@ combinedData <- raw_data_data_frame
 # 2. Filter relevant IVs and log-transform DV
 # -----------------------------
 
-dependent_variable <- "rt"
+dependent_variable <- "angle"
 
 # Choose epsilon based on DV
 epsilon <- ifelse(dependent_variable == "angle", 1e-6, 0)
@@ -92,6 +92,70 @@ anova_clean <- anova_res$ANOVA %>%
   mutate(across(where(is.numeric), ~ round(.x, 3)))
 
 print(anova_clean)
+
+
+# -----------------------------
+# Fit RM-ANOVA as aov model (log-transformed DV)
+# -----------------------------
+aov_mod <- aov(mean_DV ~ repetition * context * interference +
+                 Error(subject / (repetition * context * interference)),
+               data = data_RMAnova)
+
+# -----------------------------
+# Compute EMMs for main effects and interactions
+# -----------------------------
+
+# Full 3-way interaction EMMs
+emm_full <- emmeans(aov_mod, ~ repetition * interference * context)
+emm_full_vals <- summary(emm_full)
+
+# Back-transform to original units
+emm_full_vals <- emm_full_vals %>%
+  mutate(
+    emmean_orig = exp(emmean) - epsilon,
+    lower.CL_orig = exp(lower.CL) - epsilon,
+    upper.CL_orig = exp(upper.CL) - epsilon
+  )
+
+# -----------------------------
+# Plot EMMs with 95% CIs, faceted by context
+# -----------------------------
+ggplot(emm_full_vals, 
+       aes(x = repetition, 
+           y = emmean_orig, 
+           color = factor(interference), 
+           group = factor(interference))) +
+  geom_line(size = 1.2) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = lower.CL_orig, ymax = upper.CL_orig), width = 0.2) +
+  facet_wrap(~ context) +  # separates panels by context
+  labs(
+    title = "Estimated Marginal Means of Angle Deviation",
+    x = "Repetition (1 vs 5)",
+    y = "Mean DV (degrees, back-transformed)",
+    color = "Interference"
+  ) +
+  theme_bw(base_size = 14)
+
+
+
+
+
+# 1. Main effect of repetition (2 levels → simple difference)
+emm_rep <- emmeans(aov_mod, pairwise ~ repetition)
+summary(emm_rep$contrasts)  # shows t-ratio, df, p-value
+
+# 2. Main effect of interference (2 levels → simple difference)
+emm_intf <- emmeans(aov_mod, pairwise ~ interference)
+summary(emm_intf$contrasts)
+
+# 3. Repetition × interference interaction (if significant)
+emm_rep_int <- emmeans(aov_mod, pairwise ~ repetition | interference)
+summary(emm_rep_int$contrasts)
+
+
+
+
 
 
 ### To obtain descriptive statistics, you need to repeat the above pipeline with raw values
@@ -154,18 +218,3 @@ descriptives_participant <- combinedData_desc %>%
 
 
 
-ggplot(data_RMAnova,
-       aes(x = repetition,
-           y = mean_DV,
-           color = interference,
-           group = interference)) +
-  stat_summary(fun = mean, geom = "line", size = 1.2) +
-  stat_summary(fun = mean, geom = "point", size = 3) +
-  facet_wrap(~ context) +
-  labs(
-    title = "Mean Log-Angle Deviation Across Conditions",
-    x = "Repetition (1 vs 5)",
-    y = "Mean DV (log-transformed angle)",
-    color = "Interference"
-  ) +
-  theme_bw(base_size = 14)
