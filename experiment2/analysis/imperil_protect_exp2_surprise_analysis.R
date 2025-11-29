@@ -172,3 +172,20 @@ descriptives <- combinedData_desc %>%
   )
 
 print(descriptives)
+
+
+#estimatedmarginalmeans
+
+emm_acc <- emmeans(model_acc, ~ context * interference, type = "response")
+emm_acc
+pairs(emm_acc)
+
+
+lmm_angle <- lmer(
+  DV ~ context * interference + (1 | subject),
+  data = combinedData_sub
+)
+emm_angle <- emmeans(lmm_angle, ~ context * interference)
+emm_angle
+
+
