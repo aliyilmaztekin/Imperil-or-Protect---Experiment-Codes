@@ -3,31 +3,43 @@
 % First started: 16.11.2025 
 % Coded by A.Y.
 
+% Finalized: 16.12.2025 
+
 % First and foremost, I believe in the ultimate randomness of the universe
 rng('shuffle');
 
 %% Generator Parameters
 % Enter the trial count, and condition number
-nTrials = 720;
-% 2 Repetition (1, 5) x 2 Context (No change, change). 
-nConds = 4;
+nTrials = 384;
+
+nBlock = nTrials/48;
+
+% Running on what?
+aliscomputer = true;
+experimentcomputer = false; 
+
 % Where should the output files go?
-condDest = 'C:\Users\eeglab\Documents\MACCLab\Ali Yılmaztekin\imperil5\imperil5ConditionFiles';
+if aliscomputer 
+    condDest = '/Users/ali/Desktop/Imperil-or-Protect---Experiment-Codes/experiment5/imperil5ConditionFiles';
+elseif experimentcomputer
+    condDest = 'C:\Users\eeglab\Documents\MACCLab\Ali Yılmaztekin\imperil5\imperil5ConditionFiles';
+end
 
 for condFile = 1:15
     % Create an empty number array. 
-    conditionMatrix = NaN(nTrials, 7);
+    conditionMatrix = NaN(nTrials, 8);
     
     % Composition:
     % 1st col: Trial number: [1 - nTrials]
     % 2nd col: Repetition sequence: (1,2,3,4,5,6)
-    % 3rd col: Context change commands: 0= No change, 1= Change
-    % 4th col: Encoding site (on which half should the image appear for
+    % 3rd col: Block type (repeat versus non-repeat)
+    % 4th col: Context change commands: 0= No change, 1= Change
+    % 5th col: Encoding site (on which half should the image appear for
     % studying): 0= left visual half, 1= right visual half.
-    % 5th col: Testing site (on which half should the memory item appear
+    % 6th col: Testing site (on which half should the memory item appear
     % against the foil at testing): 0= same as study, 1= the other side.
-    % 6th col: The original rotation angle 
-    % 7th col: Foil rotation angle for the wrong answer at testing. 
+    % 7th col: The original rotation angle 
+    % 8th col: Foil rotation angle for the wrong answer at testing. 
     
     liveTrial = (1:nTrials)';
     repetitionSequence = [1 2 3 4 5 6]';
@@ -40,7 +52,7 @@ for condFile = 1:15
     
     contextChange = [zeros(nAssign/2,1); ones(nAssign/2,1)];  
     contextChange = contextChange(randperm(nAssign));
-    conditionMatrix(idxRep, 3) = contextChange;
+    conditionMatrix(idxRep, 4) = contextChange;
     
     % Encoding site has to stay the same throughout a repetition series.
     idxRep = conditionMatrix(:,2) == 1;
@@ -48,15 +60,12 @@ for condFile = 1:15
     
     encodingSite = [zeros(nAssign/2,1); ones(nAssign/2,1)];
     encodingSite = encodingSite(randperm(nAssign));
-    conditionMatrix(:,4) = repelem(encodingSite, 6);
+    conditionMatrix(:,5) = repelem(encodingSite, 6);
     
     % But testing site can be totally random.
     testingSite = [zeros(nTrials/2,1);ones(nTrials/2,1)];
     testingSite = testingSite(randperm(nTrials));
-    conditionMatrix(:, 5) = testingSite;  
-    
-    
- 
+    conditionMatrix(:, 6) = testingSite;  
     
     %% Rotation Angle Generation
     % The below code works by the following conceptual logic: 
@@ -85,7 +94,8 @@ for condFile = 1:15
     % It also handles the generation of 6 foils per 1 original angle. 
     
     %% Parameters
-    numOriginals = nTrials/6;
+    numOriginals = (nTrials/6)/2 + (nTrials/2); 
+    numOriginals = numOriginals + 8; % 8 more unique angles for training
     forbiddenRadius = 40;    % 40° around previous rotation
     numFoilsPerOriginal = 6;
     minOffset = 5;           % min foil distance from original
@@ -112,33 +122,117 @@ for condFile = 1:15
         % Pick randomly among allowed
         originals(i) = allowed(randi(length(allowed)));
     end
+
+    % Store and cut out training angles  
+    trainingAngles = originals(1:8);
+    originals(1:8) = [];
+
+    % From the remaining, store some as repeating angles for the main phase
+    repeatingOriginalsIdx = originals(1: (nTrials/6)/2);
+    originals(1: (nTrials/6)/2) = [];
+
+    % Let the remaining be non-repeating
+    nonRepeatingOriginals = originals';
+
+    repeatingOriginals = repelem(repeatingOriginalsIdx, 6)';  % repeating originals
+
     
+    combineOriginals = [repeatingOriginals; nonRepeatingOriginals]; 
+
     %% Generate foils for each original
-    foils = zeros(numOriginals, numFoilsPerOriginal);
-    
-    for i = 1:numOriginals
-        rot = originals(i);
-        
-        for j = 1:numFoilsPerOriginal
-            % Sample offset from truncated normal
-            offset = round(normrnd(meanOffset, sdOffset));
-            offset = max(minOffset, min(maxOffset, offset));
-            
-            % Random direction
-            if rand < 0.5
-                offset = -offset;
-            end
-            
-            % Circular wrap-around
-            foils(i,j) = mod(rot + offset - 1, 359) + 1;
+    foils = zeros(length(combineOriginals), 1);
+
+    for i = 1:length(combineOriginals)
+        rot = combineOriginals(i);
+
+        % Sample offset from truncated normal
+        offset = round(normrnd(meanOffset, sdOffset));
+        offset = max(minOffset, min(maxOffset, offset));
+
+        % Random direction
+        if rand < 0.5
+            offset = -offset;
         end
+
+        % Circular wrap-around
+        foils(i) = mod(rot + offset - 1, 359) + 1;
     end
+
+    % Divide into blocks
+    blockedCombineOriginals = reshape(combineOriginals, nTrials/nBlock, nBlock);
+
+    blockedCombineFoils = reshape(foils, nTrials/nBlock, nBlock);
     
-    foils_flat = reshape(foils', 1, []);  % row-wise flatten
+    % Randomization key
+    randomBlockOrder = randperm(nBlock);
     
-    % Lastly, append to the global condition matrix. 
-    conditionMatrix(:,6) = repelem(originals, 6)';  % repeated originals
-    conditionMatrix(:,7) = foils_flat';            % matching foils
+    % Reorder blocks
+    randomizedOriginals = blockedCombineOriginals(:, randomBlockOrder);
+    
+    % Squeeze back to a column vector
+    randomizedOriginals = randomizedOriginals(:);
+
+    randomizedFoils = blockedCombineFoils(:, randomBlockOrder);
+    randomizedFoils = randomizedFoils(:);
+
+    conditionMatrix(:,7) = randomizedOriginals;
+    conditionMatrix(:,8) = randomizedFoils;
+
+    % Assign block types
+    block_types = zeros(1,8);
+    block_types(:, randomBlockOrder(:) >= 5) = 1;
+    block_types = repelem(block_types, 48)';
+    conditionMatrix(:,3) = block_types;
+
+    %% Training Matrix:
+    % Training is 18 trials. Two series are repeats, and one is a
+    % non-repeat. 
+
+    trainingRepeating = repelem(trainingAngles(1:2), 6)';  % 12 trials
+    trainingNonRepeating = trainingAngles(3:8)';          % 6 trials
+    trainingOriginals = [trainingRepeating; trainingNonRepeating];  % 18 trials
+
+    % Parameters (reuse from main code)
+    minOffset = 5;
+    maxOffset = 15;
+    meanOffset = 10;
+    sdOffset = 3;
+
+    trainingFoils = zeros(length(trainingOriginals),1);
+
+    for i = 1:length(trainingOriginals)
+        rot = trainingOriginals(i);
+
+        % Sample offset from truncated normal
+        offset = round(normrnd(meanOffset, sdOffset));
+        offset = max(minOffset, min(maxOffset, offset));
+
+        % Random direction
+        if rand < 0.5
+            offset = -offset;
+        end
+
+        % Circular wrap-around
+        trainingFoils(i) = mod(rot + offset - 1, 359) + 1;
+    end
+
+    trainingMatrix = nan(18,8);      
+    trainingMatrix(:,7:8) = [trainingOriginals, trainingFoils];
+
+    % Fill other columns 
+    trainingMatrix(:,1) = (1:18)'; 
+    trainingMatrix(:,2) = repmat(1:6, 1, 3)';           
+    trainingMatrix(:,3) = repelem([0 0 1], 6)';      
+    trainingMatrix(:,4) = [0 NaN NaN NaN 1 NaN 0 NaN NaN NaN 1 NaN ...
+        1 NaN NaN NaN 1 NaN];                       
+    
+    trainingEncoding = [0 1 randi([0 1],1,1)]; 
+    trainingEncoding = trainingEncoding(randperm(3));
+    
+    trainingMatrix(:,5) = repelem(trainingEncoding, 6)';     
+    trainingMatrix(:,6) = randi([0 1],18,1);       
+
+    conditionMatrix = [conditionMatrix; trainingMatrix];
     
     % Specify the folder where you want to save the file
     saveFolder = condDest;

@@ -36,7 +36,7 @@ combinedData <- raw_data_data_frame
 ### PREPROCESSING
 
 # 1) Put in your DV and IVs
-dependent_variable <- "rt"
+dependent_variable <- "angle"
 independent_variables <- c("repetition", "context", "interference")
 
 # 2) Log-transform your dependent variable? Check true if yes. 
@@ -292,23 +292,183 @@ for (effect in 1:length(sig_effects)) {
 # e.g. You have 4 significant effects: Repetition, Context, Interference and Repetition:Interference
 # You need to plot 2 emms: Context and Repetition:Interference
 
+### VISUALIZATION
+# --------------------------------------------
+# GOAL:
+# Plot only the significant effects.
+# If a main effect is part of a higher-order interaction, do NOT plot it alone.
+# If a significant interaction exists, plot the interaction.
+# --------------------------------------------
 
+# Helper function: returns TRUE if a factor is included inside any higher-order interaction
+is_part_of_interaction <- function(factor, all_effects) {
+  any(grepl(paste0("^", factor, ":"), all_effects) |
+        grepl(paste0(":", factor, "$"), all_effects) |
+        grepl(paste0(":", factor, ":"), all_effects))
+}
 
+# Store generated EMM tables in a named list for plotting
+emm_tables <- list()
 
+for (effect in sig_effects) {
+  k <- str_count(effect, fixed(":"))
+  
+  if (k == 0) {
+    # -------------------------
+    # MAIN EFFECT
+    # -------------------------
+    factor_name <- effect
+    emm_formula <- as.formula(paste("~", factor_name))
+    
+    emm_tbl <- emmeans(lm_mod, emm_formula) |> 
+      summary(infer=TRUE) |> as.data.frame() |>
+      mutate(
+        emmean_orig = exp(emmean) - epsilon,
+        lower.CL_orig = exp(lower.CL) - epsilon,
+        upper.CL_orig = exp(upper.CL) - epsilon
+      )
+    
+    emm_tables[[effect]] <- emm_tbl
+    
+  } else if (k == 1) {
+    # -------------------------
+    # TWO-WAY INTERACTION
+    # -------------------------
+    factors <- str_split(effect, ":", simplify = TRUE)
+    emm_formula <- as.formula(paste("~", paste(factors, collapse="*")))
+    
+    emm_tbl <- emmeans(lm_mod, emm_formula) |> 
+      summary(infer=TRUE) |> as.data.frame() |>
+      mutate(
+        emmean_orig = exp(emmean) - epsilon,
+        lower.CL_orig = exp(lower.CL) - epsilon,
+        upper.CL_orig = exp(upper.CL) - epsilon
+      )
+    
+    emm_tables[[effect]] <- emm_tbl
+    
+  } else if (k == 2) {
+    # -------------------------
+    # THREE-WAY INTERACTION
+    # -------------------------
+    factors <- str_split(effect, ":", simplify = TRUE)
+    emm_formula <- as.formula(paste("~", paste(factors, collapse="*")))
+    
+    emm_tbl <- emmeans(lm_mod, emm_formula) |> 
+      summary(infer=TRUE) |> as.data.frame() |>
+      mutate(
+        emmean_orig = exp(emmean) - epsilon,
+        lower.CL_orig = exp(lower.CL) - epsilon,
+        upper.CL_orig = exp(upper.CL) - epsilon
+      )
+    
+    emm_tables[[effect]] <- emm_tbl
+  }
+}
 
+# --------------------------------------------------
+# PLOTTING SECTION
+# --------------------------------------------------
 
+for (effect in sig_effects) {
+  
+  k <- str_count(effect, ":")
+  emm_tbl <- emm_tables[[effect]]
+  
+  if (k == 0) {
+    # MAIN EFFECT
+    if (is_part_of_interaction(effect, sig_effects)) {
+      # Do NOT plot main effects that are inside interactions
+      next
+    }
+    
+    factor_name <- effect
+    
+    p <- ggplot(emm_tbl, aes_string(x=factor_name, y="emmean_orig")) +
+      geom_point(size=3) +
+      geom_line(aes(group=1), linewidth=1) +
+      geom_errorbar(aes(ymin=lower.CL_orig, ymax=upper.CL_orig), width=.1) +
+      labs(
+        x = factor_name,
+        y = "Estimated Mean (original scale)",
+        title = paste("Main Effect of", factor_name)
+      ) +
+      theme_classic(base_size=15)
+    
+    print(p)
+    
+  } else if (k == 1) {
+    # TWO-WAY INTERACTION
+    factors <- str_split(effect, ":", simplify=TRUE)
+    f1 <- factors[1]
+    f2 <- factors[2]
+    
+    p <- ggplot(emm_tbl,
+                aes_string(
+                  x = f1,
+                  y = "emmean_orig",
+                  color = f2,
+                  group = f2
+                )) +
+      geom_point(size=3) +
+      geom_line(linewidth=1) +
+      geom_errorbar(aes(ymin=lower.CL_orig, ymax=upper.CL_orig),
+                    width=.15) +
+      labs(
+        x = f1,
+        y = "Estimated Mean (original scale)",
+        color = f2,
+        title = paste("Interaction:", f1, "×", f2)
+      ) +
+      theme_classic(base_size=15)
+    
+    print(p)
+    
+  } else if (k == 2) {
+    # THREE-WAY INTERACTION
+    factors <- str_split(effect, ":", simplify=TRUE)
+    f1 <- factors[1]
+    f2 <- factors[2]
+    f3 <- factors[3]
+    
+    p <- ggplot(emm_tbl,
+                aes_string(
+                  x = f1,
+                  y = "emmean_orig",
+                  color = f2,
+                  group = f2
+                )) +
+      geom_point(size=2.5) +
+      geom_line(linewidth=1) +
+      geom_errorbar(aes(ymin=lower.CL_orig, ymax=upper.CL_orig),
+                    width=.15) +
+      facet_wrap(as.formula(paste("~", f3))) +
+      labs(
+        x = f1,
+        y = "Estimated Mean (original scale)",
+        color = f2,
+        title = paste("Three-way Interaction:", f1, "×", f2, "×", f3)
+      ) +
+      theme_classic(base_size=15)
+    
+    print(p)
+  }
+}
 
+# Repetition × Interference interaction simple effects
 
+emm_rep_int <- emmeans(lm_mod, ~ repetition * interference)
 
+# Simple effect of interference at each repetition
+simple_interference <- pairs(emm_rep_int, simple = "interference", combine = TRUE)
+print(simple_interference)
 
+# Simple effect of repetition at each interference level
+simple_repetition <- pairs(emm_rep_int, simple = "repetition", combine = TRUE)
+print(simple_repetition)
 
-
-
-
-
-
-
-
-
+# All pairwise comparisons among the 4 conditions
+all_pairs <- contrast(emm_rep_int, "pairwise", adjust = "tukey")
+print(all_pairs)
 
 

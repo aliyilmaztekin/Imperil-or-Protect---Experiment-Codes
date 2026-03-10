@@ -36,7 +36,7 @@ combinedData <- raw_data_data_frame
 # 2. Filter relevant IVs and log-transform DV
 # -----------------------------
 
-dependent_variable <- "rt"
+dependent_variable <- "angle"
 
 # # Choose epsilon based on DV
 epsilon <- 1e-6
@@ -172,3 +172,20 @@ descriptives <- combinedData_desc %>%
   )
 
 print(descriptives)
+
+
+#estimatedmarginalmeans
+
+emm_acc <- emmeans(model_acc, ~ context * interference, type = "response")
+emm_acc
+pairs(emm_acc)
+
+
+lmm_angle <- lmer(
+  DV ~ context * interference + (1 | subject),
+  data = combinedData_sub
+)
+emm_angle <- emmeans(lmm_angle, ~ context * interference)
+emm_angle
+
+

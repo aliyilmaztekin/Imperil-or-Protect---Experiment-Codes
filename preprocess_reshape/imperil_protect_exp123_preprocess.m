@@ -1,8 +1,8 @@
 experiment_handle = 3; % Which experiment do you wanna pull data from?
 
 analyze_main = false;
-analyze_surprise = true;
-analyze_sixlets = false;
+analyze_surprise = false;
+analyze_sixlets = true;
 
 % All analysis names are: 
 % Main analyses (ACC, RT, MRT) DONE
@@ -240,7 +240,7 @@ if analyze_main == true
                                 context_change_command(end+1,1) = 0;
                                 interference_command(end+1,1) = 0;
                                 interference_subtype(end+1,1) = 0;
-                                accuracy_rates(end+1,1) = abs(current_csv_table{current_trial, "Var6"});
+                                accuracy_rates(end+1,1) = (current_csv_table{current_trial, "Var6"});
                                 RTs(end+1,1) = current_csv_table{current_trial, "Var9"};
                                 waitRT(end+1,1) = current_csv_table{current_trial, "Var10"};
                                 decision_time(end+1,1) = RTs(end) - waitRT(end); 
@@ -257,7 +257,7 @@ if analyze_main == true
                                     interference_subtype(end+1,1) = 2;
                                 end
                                
-                                accuracy_rates(end+1,1) = abs(current_csv_table{current_trial, "Var6"});
+                                accuracy_rates(end+1,1) = (current_csv_table{current_trial, "Var6"});
                                 RTs(end+1,1) = current_csv_table{current_trial, "Var9"};
                                 waitRT(end+1,1) = current_csv_table{current_trial, "Var10"};
                                 decision_time(end+1,1) = RTs(end) - waitRT(end); 
@@ -278,7 +278,7 @@ if analyze_main == true
                                 context_change_command(end+1,1) = 1;
                                 interference_command(end+1,1) = 0;
                                 interference_subtype(end+1,1) = 0;
-                                accuracy_rates(end+1,1) = abs(current_csv_table{current_trial, "Var6"});
+                                accuracy_rates(end+1,1) = (current_csv_table{current_trial, "Var6"});
                                 RTs(end+1,1) = current_csv_table{current_trial, "Var9"};
                                 waitRT(end+1,1) = current_csv_table{current_trial, "Var10"};
     
@@ -295,7 +295,7 @@ if analyze_main == true
                                     interference_subtype(end+1,1) = 2;
                                 end
     
-                                accuracy_rates(end+1,1) = abs(current_csv_table{current_trial, "Var6"});
+                                accuracy_rates(end+1,1) = (current_csv_table{current_trial, "Var6"});
                                 RTs(end+1,1) = current_csv_table{current_trial, "Var9"};
                                 waitRT(end+1,1) = current_csv_table{current_trial, "Var10"};   
                                 decision_time(end+1,1) = RTs(end) - waitRT(end); 
@@ -324,7 +324,7 @@ if analyze_main == true
                                 context_change_command(end+1,1) = 0;
                                 interference_command(end+1,1) = 0;
                                 interference_subtype(end+1,1) = 0;
-                                accuracy_rates(end+1,1) = abs(current_csv_table{current_trial, "Var6"});
+                                accuracy_rates(end+1,1) = (current_csv_table{current_trial, "Var6"});
                                 RTs(end+1,1) = current_csv_table{current_trial, "Var9"};
                                 waitRT(end+1,1) = current_csv_table{current_trial, "Var10"};
                                 decision_time(end+1,1) = RTs(end) - waitRT(end); 
@@ -341,7 +341,7 @@ if analyze_main == true
                                     interference_subtype(end+1,1) = 2;
                                 end
     
-                                accuracy_rates(end+1,1) = abs(current_csv_table{current_trial, "Var6"});
+                                accuracy_rates(end+1,1) = (current_csv_table{current_trial, "Var6"});
                                 RTs(end+1,1) = current_csv_table{current_trial, "Var9"};
                                 waitRT(end+1,1) = current_csv_table{current_trial, "Var10"};
                                 decision_time(end+1,1) = RTs(end) - waitRT(end); 
@@ -362,7 +362,7 @@ if analyze_main == true
                                 context_change_command(end+1,1) = 1;
                                 interference_command(end+1,1) = 0;
                                 interference_subtype(end+1,1) = 0;
-                                accuracy_rates(end+1,1) = abs(current_csv_table{current_trial, "Var6"});
+                                accuracy_rates(end+1,1) = (current_csv_table{current_trial, "Var6"});
                                 RTs(end+1,1) = current_csv_table{current_trial, "Var9"};
                                 waitRT(end+1,1) = current_csv_table{current_trial, "Var10"};
 
@@ -379,7 +379,7 @@ if analyze_main == true
                                     interference_subtype(end+1,1) = 2;
                                 end
     
-                                accuracy_rates(end+1,1) = abs(current_csv_table{current_trial, "Var6"});
+                                accuracy_rates(end+1,1) = (current_csv_table{current_trial, "Var6"});
                                 RTs(end+1,1) = current_csv_table{current_trial, "Var9"};
                                 waitRT(end+1,1) = current_csv_table{current_trial, "Var10"};    
                                 decision_time(end+1,1) = RTs(end) - waitRT(end); 
@@ -398,14 +398,22 @@ if analyze_main == true
                             end
                         end
                     end
-    
+
+               
                 %Combine all the number vectors to construct the participant's dataset
                 data_per_participant = [id_number, trial_number, repetition, context_change_command, ...
                            interference_command, interference_accuracy, accuracy_rates, RTs, waitRT, decision_time, interference_subtype];
+
+                if current_trial == trial_count
+                   data_per_participant( ...
+                        data_per_participant(:,7) < -180 | data_per_participant(:,7) > 180, ...
+                        7 ...
+                    )
+                end
             
                 % Append the current dataset to the final matrix
                 all_data_experiment2_main_anova = [all_data_experiment2_main_anova; data_per_participant];
-        
+    
                 % Repeat the whole process for each participant
                 end
         
@@ -861,19 +869,19 @@ if analyze_surprise == true
         
                     
 
-                    if (strcmp(current_csv_table{matchIdx(1), "Var11"}, 'Across') || strcmp(current_csv_table{matchIdx(1), "Var11"}, 'Within')) && strcmp(current_csv_table{matchIdx(1), "Var12"}, 'Yes Interference') 
-                        history(end+1,1) = 3;
-                    elseif strcmp(current_csv_table{matchIdx(1), "Var11"}, 'Across') || strcmp(current_csv_table{matchIdx(1), "Var11"}, 'Within')
-                        history(end+1,1) = 1;
-                    elseif strcmp(current_csv_table{matchIdx(1), "Var12"}, 'Yes Interference') 
-                        history(end+1,1) = 2;
-                    else 
-                        history(end+1,1) = 0;
-                    end
-
-                    if history(end) ~= 0
-                        continue;
-                    end
+                    % if (strcmp(current_csv_table{matchIdx(1), "Var11"}, 'Across') || strcmp(current_csv_table{matchIdx(1), "Var11"}, 'Within')) && strcmp(current_csv_table{matchIdx(1), "Var12"}, 'Yes Interference') 
+                    %     history(end+1,1) = 3;
+                    % elseif strcmp(current_csv_table{matchIdx(1), "Var11"}, 'Across') || strcmp(current_csv_table{matchIdx(1), "Var11"}, 'Within')
+                    %     history(end+1,1) = 1;
+                    % elseif strcmp(current_csv_table{matchIdx(1), "Var12"}, 'Yes Interference') 
+                    %     history(end+1,1) = 2;
+                    % else 
+                    %     history(end+1,1) = 0;
+                    % end
+                    % 
+                    % if history(end) ~= 0
+                    %     continue;
+                    % end
 
                     % When location is found, first save the following simple
                     % values
@@ -1594,7 +1602,9 @@ if analyze_sixlets == true
                             trial_number(end+1,1) = current_trial;
                             repetition(end+1,1) = 1;
                             block(end+1, 1) = current_csv_table{current_trial, "Var16"};
-                            accuracy_rates(end+1,1) = abs(current_csv_table{current_trial, "Var6"});
+                            err = current_csv_table{current_trial, "Var6"};
+                            err = mod(err + 180, 360) - 180;   % guaranteed in (-180, 180] % In case the value needs another wrap-around
+                            accuracy_rates(end+1,1) = err;
                             RTs(end+1,1) = current_csv_table{current_trial, "Var9"};
                             waitRT(end+1,1) = current_csv_table{current_trial, "Var10"};
                             decision_time(end+1,1) = RTs(end) - waitRT(end);
@@ -1623,7 +1633,9 @@ if analyze_sixlets == true
                             trial_number(end+1,1) = current_trial;
                             repetition(end+1,1) = 2;         
                             block(end+1, 1) = current_csv_table{current_trial, "Var16"};
-                            accuracy_rates(end+1,1) = abs(current_csv_table{current_trial, "Var6"});
+                            err = current_csv_table{current_trial, "Var6"};
+                            err = mod(err + 180, 360) - 180;   % guaranteed in (-180, 180] % In case the value needs another wrap-around
+                            accuracy_rates(end+1,1) = err;
                             RTs(end+1,1) = current_csv_table{current_trial, "Var9"};
                             waitRT(end+1,1) = current_csv_table{current_trial, "Var10"};
                             decision_time(end+1,1) = RTs(end) - waitRT(end);
@@ -1635,7 +1647,9 @@ if analyze_sixlets == true
                             trial_number(end+1,1) = current_trial;
                             repetition(end+1,1) = 3;      
                             block(end+1, 1) = current_csv_table{current_trial, "Var16"};
-                            accuracy_rates(end+1,1) = abs(current_csv_table{current_trial, "Var6"});
+                            err = current_csv_table{current_trial, "Var6"};
+                            err = mod(err + 180, 360) - 180;   % guaranteed in (-180, 180] % In case the value needs another wrap-around
+                            accuracy_rates(end+1,1) = err;
                             RTs(end+1,1) = current_csv_table{current_trial, "Var9"};
                             waitRT(end+1,1) = current_csv_table{current_trial, "Var10"};
                             decision_time(end+1,1) = RTs(end) - waitRT(end);
@@ -1646,7 +1660,9 @@ if analyze_sixlets == true
                             trial_number(end+1,1) = current_trial;
                             repetition(end+1,1) = 4; 
                             block(end+1, 1) = current_csv_table{current_trial, "Var16"};
-                            accuracy_rates(end+1,1) = abs(current_csv_table{current_trial, "Var6"});
+                            err = current_csv_table{current_trial, "Var6"};
+                            err = mod(err + 180, 360) - 180;   % guaranteed in (-180, 180] % In case the value needs another wrap-around
+                            accuracy_rates(end+1,1) = err;
                             RTs(end+1,1) = current_csv_table{current_trial, "Var9"};
                             waitRT(end+1,1) = current_csv_table{current_trial, "Var10"};
                             decision_time(end+1,1) = RTs(end) - waitRT(end);
@@ -1657,7 +1673,9 @@ if analyze_sixlets == true
                             trial_number(end+1,1) = current_trial;
                             repetition(end+1,1) = 5;
                             block(end+1, 1) = current_csv_table{current_trial, "Var16"};
-                            accuracy_rates(end+1,1) = abs(current_csv_table{current_trial, "Var6"});
+                            err = current_csv_table{current_trial, "Var6"};
+                            err = mod(err + 180, 360) - 180;   % guaranteed in (-180, 180] % In case the value needs another wrap-around
+                            accuracy_rates(end+1,1) = err;
                             RTs(end+1,1) = current_csv_table{current_trial, "Var9"};
                             waitRT(end+1,1) = current_csv_table{current_trial, "Var10"};
                             decision_time(end+1,1) = RTs(end) - waitRT(end);
@@ -1687,7 +1705,9 @@ if analyze_sixlets == true
                             trial_number(end+1,1) = current_trial;
                             repetition(end+1,1) = 6;    
                             block(end+1, 1) = current_csv_table{current_trial, "Var16"};
-                            accuracy_rates(end+1,1) = abs(current_csv_table{current_trial, "Var6"});
+                            err = current_csv_table{current_trial, "Var6"};
+                            err = mod(err + 180, 360) - 180;   % guaranteed in (-180, 180] % In case the value needs another wrap-around
+                            accuracy_rates(end+1,1) = err;
                             RTs(end+1,1) = current_csv_table{current_trial, "Var9"};
                             waitRT(end+1,1) = current_csv_table{current_trial, "Var10"};
                             decision_time(end+1,1) = RTs(end) - waitRT(end);
@@ -1760,6 +1780,7 @@ if analyze_sixlets == true
             conditions = NaN(720,1);
             context = NaN(720,1);
             interference = NaN(720,1);
+            interferenceRT = [];
 
             % Define how many trials experiment 3 had
             trial_count = 720;
@@ -1774,51 +1795,65 @@ if analyze_sixlets == true
                         trial_number(end+1,1) = current_trial;
                         block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
                         repetition(end+1,1) = 1;
-                        accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
+                        err = (str2double(current_mat_table.dataMatrix(current_trial, 14)));
+                        err = mod(err + 180, 360) - 180;   % guaranteed in (-180, 180] % In case the value needs another wrap-around
+                        accuracy_rates(end+1,1) = err;
                         
                       
                         if current_mat_table.dataMatrix(current_trial, 11) == "No Change" && current_mat_table.dataMatrix(current_trial, 12) == "No Interference Presented"  
                             conditions(current_trial,1) = 1;
                             context(current_trial,1) = 0;
                             interference(current_trial,1) = 0;
-                            RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
+                            RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) ;
                             waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
                             decision_time(end+1,1) = RTs(end) - waitRT(end);
+                            interferenceRT(end+1, 1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 18)));
+
                         elseif current_mat_table.dataMatrix(current_trial, 11) == "No Change" && current_mat_table.dataMatrix(current_trial, 12) ~= "No Interference Presented"   
                             conditions(current_trial,1) = 2;
                             context(current_trial,1) = 0;
                             interference(current_trial,1) = 1;
-                            RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.2;
+                            RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) ;
                             waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.2;
                             decision_time(end+1,1) = RTs(end) - waitRT(end);
+                            interferenceRT(end+1, 1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 18)));
+
                         elseif current_mat_table.dataMatrix(current_trial, 11) == "Yes Change" && current_mat_table.dataMatrix(current_trial, 12) == "No Interference Presented"   
                             conditions(current_trial,1) = 3;
                             context(current_trial,1) = 1;
                             interference(current_trial,1) = 0;
-                            RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
+                            RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15));
                             waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
                             decision_time(end+1,1) = RTs(end) - waitRT(end);
+                           interferenceRT(end+1, 1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 18)));
+
                         elseif current_mat_table.dataMatrix(current_trial, 11) == "Yes Change" && current_mat_table.dataMatrix(current_trial, 12) ~= "No Interference Presented"   
                             conditions(current_trial,1) = 4;
                             context(current_trial,1) = 1;
                             interference(current_trial,1) = 1;
-                            RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.2;
+                            RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) ;
                             waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.2;
                             decision_time(end+1,1) = RTs(end) - waitRT(end);
+                            interferenceRT(end+1, 1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 18)));
+
                         end
     
                      elseif mod(current_trial, 6) == 2
                         
-                         global_count = global_count + 1;
+                        global_count = global_count + 1;
 
                         id_number(end+1,1) = current_subject;
                         trial_number(end+1,1) = current_trial;
                         block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
                         repetition(end+1,1) = 2;
-                        accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
+                        err = (str2double(current_mat_table.dataMatrix(current_trial, 14)));
+                        err = mod(err + 180, 360) - 180;   % guaranteed in (-180, 180] % In case the value needs another wrap-around
+                        accuracy_rates(end+1,1) = err;                        
                         RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15));
                         waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16));
                         decision_time(end+1,1) = RTs(end) - waitRT(end);
+                        interferenceRT(end+1, 1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 18)));
+
                             
                      elseif mod(current_trial, 6) == 3
 
@@ -1829,10 +1864,14 @@ if analyze_sixlets == true
                         trial_number(end+1,1) = current_trial;
                         block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
                         repetition(end+1,1) = 3;
-                        accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
+                        err = (str2double(current_mat_table.dataMatrix(current_trial, 14)));
+                        err = mod(err + 180, 360) - 180;   % guaranteed in (-180, 180] % In case the value needs another wrap-around
+                        accuracy_rates(end+1,1) = err;
                         RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15));
                         waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16));
                         decision_time(end+1,1) = RTs(end) - waitRT(end);
+                        interferenceRT(end+1, 1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 18)));
+
     
                      elseif mod(current_trial, 6) == 4
 
@@ -1842,10 +1881,14 @@ if analyze_sixlets == true
                         trial_number(end+1,1) = current_trial;
                         block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
                         repetition(end+1,1) = 4;
-                        accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
+                        err = (str2double(current_mat_table.dataMatrix(current_trial, 14)));
+                        err = mod(err + 180, 360) - 180;   % guaranteed in (-180, 180] % In case the value needs another wrap-around
+                        accuracy_rates(end+1,1) = err;
                         RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15));
                         waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16));
                         decision_time(end+1,1) = RTs(end) - waitRT(end);
+                        interferenceRT(end+1, 1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 18)));
+
     
                      elseif mod(current_trial, 6) == 5
 
@@ -1855,36 +1898,46 @@ if analyze_sixlets == true
                         trial_number(end+1,1) = current_trial;
                         block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
                         repetition(end+1,1) = 5;
-                        accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
+                        err = (str2double(current_mat_table.dataMatrix(current_trial, 14)));
+                        err = mod(err + 180, 360) - 180;   % guaranteed in (-180, 180] % In case the value needs another wrap-around
+                        accuracy_rates(end+1,1) = err;
     
                         if current_mat_table.dataMatrix(current_trial, 11) == "No Change" && current_mat_table.dataMatrix(current_trial, 12) == "No Interference Presented"  
                             conditions(current_trial,1) = 3;
                             context(current_trial,1) = 0;
                             interference(current_trial,1) = 0;
-                            RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
+                            RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15));
                             waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
                             decision_time(end+1,1) = RTs(end) - waitRT(end);
+                            interferenceRT(end+1, 1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 18)));
+
                         elseif current_mat_table.dataMatrix(current_trial, 11) == "No Change" && current_mat_table.dataMatrix(current_trial, 12) ~= "No Interference Presented"   
                             conditions(current_trial,1) = 4;
                             context(current_trial,1) = 0;
                             interference(current_trial,1) = 1;
-                            RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.2;
+                            RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15));
                             waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.2;
                             decision_time(end+1,1) = RTs(end) - waitRT(end);
+                            interferenceRT(end+1, 1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 18)));
+
                         elseif current_mat_table.dataMatrix(current_trial, 11) == "Yes Change" && current_mat_table.dataMatrix(current_trial, 12) == "No Interference Presented"   
                             conditions(current_trial,1) = 3;
                             context(current_trial,1) = 1;
                             interference(current_trial,1) = 0;
-                            RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.9;
+                            RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15));
                             waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.9;
                             decision_time(end+1,1) = RTs(end) - waitRT(end);
+                            interferenceRT(end+1, 1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 18)));
+
                         elseif current_mat_table.dataMatrix(current_trial, 11) == "Yes Change" && current_mat_table.dataMatrix(current_trial, 12) ~= "No Interference Presented"   
                             conditions(current_trial,1) = 4;
                             context(current_trial,1) = 1;
                             interference(current_trial,1) = 1;
-                            RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) - 0.2;
+                            RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15)) ;
                             waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16)) - 0.2;
                             decision_time(end+1,1) = RTs(end) - waitRT(end);
+                            interferenceRT(end+1, 1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 18)));
+
                         end
                      
                      elseif mod(current_trial, 6) == 0
@@ -1896,10 +1949,14 @@ if analyze_sixlets == true
                         trial_number(end+1,1) = current_trial;
                         block(end+1,1) = current_mat_table.dataMatrix(current_trial, 5);  
                         repetition(end+1,1) = 6;
-                        accuracy_rates(end+1,1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 14)));
+                        err = (str2double(current_mat_table.dataMatrix(current_trial, 14)));
+                        err = mod(err + 180, 360) - 180;   % guaranteed in (-180, 180] % In case the value needs another wrap-around
+                        accuracy_rates(end+1,1) = err;
                         RTs(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 15));
                         waitRT(end+1,1) = str2double(current_mat_table.dataMatrix(current_trial, 16));
                         decision_time(end+1,1) = RTs(end) - waitRT(end);
+                        interferenceRT(end+1, 1) = abs(str2double(current_mat_table.dataMatrix(current_trial, 18)));
+
                      end
              
                     if abs(str2double(current_mat_table.dataMatrix(current_trial,7)) - str2double(current_mat_table.dataMatrix(current_trial,9))) < 30
@@ -1910,7 +1967,7 @@ if analyze_sixlets == true
         
         
             %Combine all the number vectors to construct the participant's dataset
-            data_per_participant = [id_number, trial_number, repetition, block, accuracy_rates, RTs, waitRT, decision_time, conditions, context, interference];
+            data_per_participant = [id_number, trial_number, repetition, block, accuracy_rates, RTs, waitRT, decision_time, conditions, context, interference, interferenceRT];
                
         
             % Append the current dataset to the final matrix
@@ -1918,19 +1975,19 @@ if analyze_sixlets == true
     
             % Repeat the process for each participant
         end
-    end
 
-    disp(size(all_data_experiment3_sixlets_anova));
+            disp(size(all_data_experiment3_sixlets_anova));
 
-    % Shave off the invalid trials from the final dataset
-    all_data_experiment3_sixlets_anova(trimmed == 1, :) = [];
-
-    disp(size(all_data_experiment3_sixlets_anova));
-
+        % Shave off the invalid trials from the final dataset
+        all_data_experiment3_sixlets_anova(trimmed == 1, :) = [];
+    
+        disp(size(all_data_experiment3_sixlets_anova));
 
 
         % When done with extracting data for experiment 3, save it as a mat file
         % for analysis
         save('/Users/ali/Desktop/visual imperil project/imperil_all_analyses_data/all_data_experiment3_sixlets_anova.mat', 'all_data_experiment3_sixlets_anova');
-       
+    
+    end
+      
 end

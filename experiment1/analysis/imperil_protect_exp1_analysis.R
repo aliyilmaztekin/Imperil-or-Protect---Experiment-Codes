@@ -292,7 +292,144 @@ for (effect in 1:length(sig_effects)) {
 # e.g. You have 4 significant effects: Repetition, Context, Interference and Repetition:Interference
 # You need to plot 2 emms: Context and Repetition:Interference
 
+interaction_effects <- sig_effects[str_detect(sig_effects, ":")]
+main_effects <- sig_effects[!str_detect(sig_effects, ":")]
 
+plots <- list()
+
+### 1) Plot significant interactions (two-way)
+if (length(interaction_effects) > 0) {
+  
+  for (effect in interaction_effects) {
+    
+    factors <- str_split(effect, ":", simplify = TRUE)
+    
+    emm_formula <- as.formula(paste("~", paste(factors, collapse = "*")))
+    
+    emm_int <- emmeans(lm_mod, emm_formula)
+    
+    emm_int_df <- summary(emm_int, infer = TRUE) %>%
+      as.data.frame() %>%
+      mutate(
+        emmean_orig   = exp(emmean) - epsilon,
+        lower.CL_orig = exp(lower.CL) - epsilon,
+        upper.CL_orig = exp(upper.CL) - epsilon
+      )
+    
+    p <- ggplot(
+      emm_int_df,
+      aes_string(
+        x     = factors[1],
+        y     = "emmean_orig",
+        color = factors[2],
+        group = factors[2]
+      )
+    ) +
+      geom_point(size = 3) +
+      geom_line(linewidth = 1) +
+      geom_errorbar(
+        aes(ymin = lower.CL_orig, ymax = upper.CL_orig),
+        width = 0.15
+      ) +
+      labs(
+        x = str_to_title(factors[1]),
+        y = "Estimated Mean (original scale)",
+        color = str_to_title(factors[2]),
+        title = paste(str_to_title(factors[1]), "×", str_to_title(factors[2]))
+      ) +
+      theme_classic(base_size = 15)
+    
+    plots[[effect]] <- p
+  }
+}
+
+### 2) Plot main effects ONLY if they are not part of an interaction
+main_effects_to_plot <- main_effects[
+  !main_effects %in% unlist(str_split(interaction_effects, ":"))
+]
+
+if (length(main_effects_to_plot) > 0) {
+  
+  for (factor_name in main_effects_to_plot) {
+    
+    emm_main <- emmeans(lm_mod, as.formula(paste("~", factor_name)))
+    
+    emm_main_df <- summary(emm_main, infer = TRUE) %>%
+      as.data.frame() %>%
+      mutate(
+        emmean_orig   = exp(emmean) - epsilon,
+        lower.CL_orig = exp(lower.CL) - epsilon,
+        upper.CL_orig = exp(upper.CL) - epsilon
+      )
+    
+    p <- ggplot(
+      emm_main_df,
+      aes_string(
+        x = factor_name,
+        y = "emmean_orig",
+        group = 1
+      )
+    ) +
+      geom_point(size = 3) +
+      geom_line(linewidth = 1) +
+      geom_errorbar(
+        aes(ymin = lower.CL_orig, ymax = upper.CL_orig),
+        width = 0.15
+      ) +
+      labs(
+        x = str_to_title(factor_name),
+        y = "Estimated Mean (original scale)",
+        title = paste("Main Effect of", str_to_title(factor_name))
+      ) +
+      theme_classic(base_size = 15)
+    
+    plots[[factor_name]] <- p
+  }
+}
+
+### 3) Print all plots
+for (p in plots) print(p)
+
+
+emm_ctx_by_rep <- emmeans(
+  lm_mod,
+  ~ context | repetition
+)
+
+
+simple_effects <- contrast(
+  emm_ctx_by_rep,
+  method = "pairwise",
+  by = "repetition",
+  adjust = "none"   # see note below
+)
+
+
+simple_effects_back <- summary(simple_effects, infer = TRUE) %>%
+  as.data.frame() %>%
+  mutate(
+    estimate_orig   = exp(estimate) - epsilon,
+    lower.CL_orig   = exp(lower.CL) - epsilon,
+    upper.CL_orig   = exp(upper.CL) - epsilon
+  )
+
+simple_effects_clean <- simple_effects_back %>%
+  mutate(
+    estimate_orig = round(estimate_orig, 2),
+    lower.CL_orig = round(lower.CL_orig, 2),
+    upper.CL_orig = round(upper.CL_orig, 2),
+    p.value = round(p.value, 4)
+  ) %>%
+  select(
+    repetition,
+    contrast,
+    estimate_orig,
+    lower.CL_orig,
+    upper.CL_orig,
+    p.value
+  )
+
+print(simple_effects_clean)
 
 
 
