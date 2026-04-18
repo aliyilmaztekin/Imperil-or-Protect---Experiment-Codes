@@ -4,6 +4,7 @@
 ### SETUP/PARAMETERS
 
 # Install/load libraries
+library(afex)
 library(R.matlab)
 library(dplyr)
 library(tidyr)
@@ -12,6 +13,7 @@ library(ggplot2)
 library(moments)
 library(emmeans)
 library(stringr)
+library(glmmTMB)
 options(scipen = 999)  # Avoid scientific notation
 
 # 1) Load MAT files
@@ -36,52 +38,145 @@ combinedData <- raw_data_data_frame
 ### PREPROCESSING
 
 # 1) Put in your DV and IVs
-dependent_variable <- "rt"
+dependent_variable <- "angle"
 independent_variables <- c("repetition", "context", "interference")
 
 # 2) Log-transform your dependent variable? Check true if yes. 
-log_me <- TRUE
+log_me <- FALSE
 
 # 3) Add a small epsilon value to your raw data before log-transform to avoid log(0)? 
-epsilon_yes <- TRUE
+epsilon_yes <- FALSE
 epsilon <- if (epsilon_yes) 1e-6 else 0
 
 # 4) Turn IVs into factors
-combinedData_sub <- combinedData %>%
+combinedData <- combinedData %>%
   mutate(
     DV = .data[[dependent_variable]],  
     across(all_of(independent_variables), factor)
   )
 
-# 5) Apply log transform as requested
-if (log_me) {
-  if (epsilon_yes) {
-    combinedData_sub <- combinedData_sub %>%
-      mutate(DV = log(DV + epsilon))
-  } else {
-    combinedData_sub <- combinedData_sub %>%
-      mutate(DV = log(DV))
-  }
-}
+# 1) Put in your DV and IVs
+dependent_variable <- "angle"
+independent_variables <- c("repetition", "context", "interference")
 
-# 6) Outlier rejection
-combinedData_sub <- combinedData_sub %>%
+dv <- sym(dependent_variable)
+
+# 1) Subject exclusions based on ANGLE1 (DV-independent)
+bad_subjects <- combinedData %>%
+  mutate(
+    subject = factor(subject),
+    angle_num = as.numeric(as.character(angle)),
+    angle_abs = abs(((angle_num + 180) %% 360) - 180)
+  ) %>%
+  filter(is.finite(angle_abs), is.finite(rt), rt >= 0.3) %>% 
   group_by(subject) %>%
-  mutate(mean_DV = mean(DV, na.rm = TRUE),
-         sd_DV   = sd(DV, na.rm = TRUE)) %>%
-  ungroup() %>%
-  filter(DV >= (mean_DV - 2.5 * sd_DV) &
-           DV <= (mean_DV + 2.5 * sd_DV)) %>%
-  select(-mean_DV, -sd_DV)  # drop temporary columns
+  summarize(mean_abs_angle = mean(angle_abs, na.rm = TRUE), .groups = "drop") %>%
+  filter(mean_abs_angle > 45) 
 
+message("Excluded subjects (mean abs circular error > 45°):")
+print(bad_subjects)
 
-# 7) Squeeze the dataset down to the critical item repetitions (1st & 5th)
+# 2) Apply exclusion to the raw data
+combinedData_sub <- combinedData %>%
+  mutate(subject = factor(subject)) %>%
+  filter(!(subject %in% bad_subjects$subject))
+
+# 3) Now do DV-specific pre-processing
 combinedData_sub <- combinedData_sub %>%
-  filter(
-    repetition %in% c(1, 5),
-    context %in% c(0, 1),
-    interference %in% c(0, 1)
+  mutate(
+    raw_outcome = as.numeric(as.character(!!dv)),
+    outcome = if (dependent_variable %in% c("rt")) {
+      raw_outcome
+    } else {
+      ((((raw_outcome + 180) %% 360) - 180))
+    },
+    repetition = factor(repetition, levels = c(1, 5), labels = c("1", "5")),
+    context = factor(context, levels = c(0, 1), labels = c("No Change", "Change")),
+    interference = factor(interference, levels = c(0,1), labels = c("No Interference", "Interference"))
+  ) %>%
+  filter(is.finite(outcome), is.finite(rt), rt >= 0.3) %>%
+  filter(repetition %in% c("1","5"),
+         context %in% c("No Change","Change"),
+         interference %in% c("No Interference", "Interference"))
+
+data_RMAnova <- combinedData_sub %>%
+  group_by(subject, repetition, context, interference) %>%
+  summarize(outcome = mean(outcome, na.rm = TRUE), .groups = "drop") %>%
+  mutate(subject = factor(subject))
+
+descriptives <- data_RMAnova %>%
+  group_by(repetition, context, interference) %>%
+  summarize(
+    mean = mean(outcome),
+    sd = sd(outcome),
+    n_subj = n_distinct(subject),
+    se = sd / sqrt(n_subj),
+    .groups="drop"
   )
+print(descriptives)
+
+
+
+combinedData_gamma <- combinedData_sub %>%
+  filter(is.finite(outcome), outcome > 0)
+
+# Gamma GLMM (log link)
+glmm_mod <- glmmTMB(
+  outcome ~ repetition * context * interference + (1 | subject),
+  data = combinedData_gamma,
+  family = Gamma(link = "log")
+)
+
+summary(glmm_mod)
+
+
+
+
+
+
+
+afex_options(type = 3, check_contrasts = TRUE)
+aov_mod <- aov_ez(
+  id     = "subject",
+  dv     = "outcome",
+  within = c("repetition", "context", "interference"),
+  data   = data_RMAnova,
+  type   = 3
+)
+
+anova_tbl <- anova(aov_mod)
+
+anova_tbl$pes <- with(
+  anova_tbl,
+  (F * `num Df`) / (F * `num Df` + `den Df`)
+)
+
+print(anova_tbl)
+
+lmm_mod <- lmer(
+  outcome ~ repetition * context * interference + (1 | subject),
+  data = combinedData_sub,
+  REML = TRUE
+)
+# anova(lmm_mod, type = 3)
+
+summary(lmm_mod)
+
+
+
+
+emm_lmer <- emmeans(lmm_mod, ~ context * interference | repetition)
+pairs(emm_lmer)
+
+emm_anova <- emmeans(aov_mod, ~ context * interference | repetition)
+pairs(emm_anova)
+
+
+
+
+
+
+
 
 
 ## DESCRIPTIVE ANALYSIS

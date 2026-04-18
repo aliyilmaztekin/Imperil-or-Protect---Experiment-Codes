@@ -11,6 +11,7 @@ library(emmeans)
 library(lme4)
 library(lmerTest)  # optional for p-values
 options(scipen = 999)  # Avoid scientific notation
+library(afex)
 
 # -----------------------------
 # 1. Load MAT files
@@ -24,72 +25,77 @@ raw_data_data_frame <- as.data.frame(raw_data_matrix)
 
 # Assign column names
 colnames(raw_data_data_frame) <- c(
-  "subject", "trial", "repetition", "context", "interference",
-  "angle", "rt", "initiation_time", "movement_time",
-  "binary_acc"
-)
+  "subject", "trial", "context", "context_type", "interference",
+  "binary_acc", "angle", "rt")
 
 combinedData <- raw_data_data_frame
-
-
-# -----------------------------
-# 2. Filter relevant IVs and log-transform DV
-# -----------------------------
-
-dependent_variable <- "angle"
-
-# # Choose epsilon based on DV
-epsilon <- 1e-6
+dv <- "binary_acc"
 
 combinedData_sub <- combinedData %>%
   mutate(
-    DV = log(.data[[dependent_variable]] + epsilon),  # add epsilon only if needed
-    subject = factor(subject),
-    context = factor(context),
-    interference = factor(interference)
+    raw_outcome = .data[[dv]],
+    outcome = if (dv %in% c("rt", "binary_acc")) {
+      raw_outcome
+    } else {
+      abs(((raw_outcome + 180) %% 360) - 180)
+    },
+    context = factor(context, levels = c(0, 1), labels = c("No Change", "Change")),
+    interference = factor(interference, levels = c(0, 1), labels = c("No Interference", "Interference"))
   ) %>%
-  filter(!is.na(DV))
+  filter(is.finite(outcome), is.finite(rt), rt >= 0.3) %>%
+  filter(
+    context %in% c("No Change", "Change"),
+    interference %in% c("No Interference", "Interference")
+  )
 
-print(nrow(combinedData_sub))
+data_RMAnova <- combinedData_sub %>%
+  group_by(subject, context, interference) %>%
+  summarize(outcome = mean(outcome, na.rm = TRUE), .groups = "drop") %>%
+  mutate(subject = factor(subject))
 
-# -----------------------------
-# 3. Remove outliers per participant (±2.5 SD)
-# -----------------------------
-combinedData_sub <- combinedData_sub %>%
-  group_by(subject) %>%
-  mutate(mean_DV = mean(DV, na.rm = TRUE),
-         sd_DV   = sd(DV, na.rm = TRUE)) %>%
-  ungroup() %>%
-  filter(DV >= (mean_DV - 2.5 * sd_DV) &
-           DV <= (mean_DV + 2.5 * sd_DV)) %>%
-  select(-mean_DV, -sd_DV)  # drop temporary columns
-
-print(nrow(combinedData_sub))
+descriptives <- data_RMAnova %>%
+  group_by(context, interference) %>%
+  summarize(
+    mean = mean(outcome),
+    sd = sd(outcome),
+    n_subj = n_distinct(subject),
+    se = sd / sqrt(n_subj),
+    .groups="drop"
+  )
+print(descriptives)
 
 
-# trial-level data → RM ANOVA
-anovaResult <- ezANOVA(
-  data = combinedData_sub,
-  dv = DV,
-  wid = subject,
-  within = .(context, interference),
-  type = 3,
-  detailed = TRUE
+afex_options(type = 3, check_contrasts = TRUE)
+aov_mod <- aov_ez(
+  id     = "subject",
+  dv     = "outcome",
+  within = c("context", "interference"),
+  data   = data_RMAnova,
+  type   = 3
 )
 
-anova_clean <- anovaResult$ANOVA %>%
-  mutate(
-    eta_p2 = SSn / (SSn + SSd)
-  ) %>%
-  mutate(across(where(is.numeric), ~ round(.x, 3)))
+anova_tbl <- anova(aov_mod)
 
-print(anova_clean)
+anova_tbl$pes <- with(
+  anova_tbl,
+  (F * `num Df`) / (F * `num Df` + `den Df`)
+)
+
+print(anova_tbl)
 
 
+combinedData_gamma <- combinedData_sub %>%
+  filter(is.finite(outcome), outcome != 0)
 
-### GENERALIZED MIXED MODEL: RECOGNITION TASK
+glmm_mod <- glmmTMB(
+  outcome ~  context * interference + (1 | subject),
+  data = combinedData_gamma,
+  family = Gamma(link = "log")
+)
 
-combinedData_acc <- combinedData %>%
+summary(glmm_mod)
+
+combinedData_acc <- combinedData_sub %>%
   mutate(
     subject = factor(subject),
     context = factor(context),

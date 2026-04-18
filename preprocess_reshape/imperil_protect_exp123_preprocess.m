@@ -1,4 +1,4 @@
-experiment_handle = 3; % Which experiment do you wanna pull data from?
+experiment_handle = 1; % Which experiment do you wanna pull data from?
 
 analyze_main = false;
 analyze_surprise = false;
@@ -867,8 +867,7 @@ if analyze_surprise == true
                     % Find where the chosen image is located in the main task dataset 
                     matchIdx = find(strcmp(current_csv_table{:, "Var8"}, current_image_name));
         
-                    
-
+     
                     % if (strcmp(current_csv_table{matchIdx(1), "Var11"}, 'Across') || strcmp(current_csv_table{matchIdx(1), "Var11"}, 'Within')) && strcmp(current_csv_table{matchIdx(1), "Var12"}, 'Yes Interference') 
                     %     history(end+1,1) = 3;
                     % elseif strcmp(current_csv_table{matchIdx(1), "Var11"}, 'Across') || strcmp(current_csv_table{matchIdx(1), "Var11"}, 'Within')
@@ -887,11 +886,11 @@ if analyze_surprise == true
                     % values
                     id_number(end+1,1) = current_surprise_participant;
                     trial_number(end+1, 1) = current_surprise_image;
-                    repetition(end+1,1) = current_csv_table{matchIdx(5), "Var3"};
-                    phase(end+1,1) = 1;
+                    % repetition(end+1,1) = current_csv_table{matchIdx(5), "Var3"};
+
                     
                     current_context_change_command = current_csv_table{matchIdx(5), "Var4"};
-    
+
                     if current_context_change_command == 1
                         context_change_command(end+1,1) = 1;
                         context_change_subtype(end+1,1) = 1;
@@ -900,22 +899,22 @@ if analyze_surprise == true
                         context_change_subtype(end+1,1) = 2;
                     elseif current_context_change_command == 0
                         context_change_command(end+1,1) = 0;
-                        context_change_subtype(end+1,1) = NaN;
+                        context_change_subtype(end+1,1) = 0;
                     end
-            
+                    % 
                     current_interference_command = current_csv_table{matchIdx(5), "Var5"};
-    
+                    % 
                     if current_interference_command == 1
                         interference_command(end+1, 1) = 1;
                     elseif current_interference_command == 2
                         interference_command(end+1, 1) = 0;
                     end
-                    
-                    % Then, save performance measures of the image in the main task 
-                    accuracy_rates(end+1,1) = abs(current_csv_table{matchIdx(5), "Var6"});
-                    RTs(end+1,1) = current_csv_table{matchIdx(5), "Var9"};
-                    waitRT(end+1,1) = current_csv_table{matchIdx(5), "Var10"};
-                    decision_time(end+1,1) = RTs(end) - waitRT(end);
+                    % 
+                    % % Then, save performance measures of the image in the main task 
+                    % accuracy_rates(end+1,1) = abs(current_csv_table{matchIdx(5), "Var6"});
+                    % RTs(end+1,1) = current_csv_table{matchIdx(5), "Var9"};
+                    % waitRT(end+1,1) = current_csv_table{matchIdx(5), "Var10"};
+                    % decision_time(end+1,1) = RTs(end) - waitRT(end);
             
                     current_surprise_recognition_accuracy = current_csv_table_surprise{current_surprise_image, "Var3"}; 
     
@@ -928,33 +927,33 @@ if analyze_surprise == true
                     % Now, duplicate the last elements of each relevant vector
                     % Except for phase and outcome measures
     
-                    id_number(end+1,1) = id_number(end);
-                    trial_number(end+1,1) = trial_number(end);
-                 
-                    repetition(end+1,1) = repetition(end);
-                    
-                    context_change_command(end+1,1) = context_change_command(end);
-                    context_change_subtype(end+1,1) = context_change_subtype(end);
-                    interference_command(end+1,1) = interference_command(end);
-                    surprise_recognition_accuracy(end+1,1) = surprise_recognition_accuracy(end);
+                    % id_number(end+1,1) = id_number(end);
+                    % trial_number(end+1,1) = trial_number(end);
+                    % 
+                    % repetition(end+1,1) = repetition(end);
+                    % 
+                    % context_change_command(end+1,1) = context_change_command(end);
+                    % context_change_subtype(end+1,1) = context_change_subtype(end);
+                    % interference_command(end+1,1) = interference_command(end);
+                    % surprise_recognition_accuracy(end+1,1) = surprise_recognition_accuracy(end);
     
     
                     % Also, save those measures' counterparts in the surprise
                     % task
     
-                    phase(end+1,1) = 2;
+                    % phase(end+1,1) = 2;
                     accuracy_rates(end+1,1) = abs(current_csv_table_surprise{current_surprise_image, "Var4"});
                     RTs(end+1,1) = current_csv_table_surprise{current_surprise_image, "Var7"};
-                    waitRT(end+1,1) = current_csv_table_surprise{current_surprise_image, "Var8"}; 
-                    decision_time(end+1,1) = RTs(end) - waitRT(end);
-                   
+                    % waitRT(end+1,1) = current_csv_table_surprise{current_surprise_image, "Var8"}; 
+                    % decision_time(end+1,1) = RTs(end) - waitRT(end);
+                    % 
     
                 end
                
                 
                 % Combine all the data taken from the current participant
-                data_per_participant_surprise = [id_number, trial_number, repetition, phase, context_change_command, ...
-                interference_command, accuracy_rates, RTs, waitRT, decision_time, surprise_recognition_accuracy, context_change_subtype];
+                data_per_participant_surprise = [id_number, trial_number, context_change_command, context_change_subtype, ...
+                interference_command, surprise_recognition_accuracy, accuracy_rates, RTs];
                  
                 % Add the individual's data to the general dataset
                 all_data_experiment1_surprise_anova = [all_data_experiment1_surprise_anova; data_per_participant_surprise];
@@ -1436,6 +1435,7 @@ if analyze_sixlets == true
                 conditions = NaN(1440,1);
                 context = NaN(1440,1);
                 interference = NaN(1440,1);
+                context_type = NaN(1440,1);
                
                 %Define trial count for experiment 1
                 trial_count = 1440;
@@ -1457,18 +1457,38 @@ if analyze_sixlets == true
                             conditions(current_trial,1) = 1;
                             context(current_trial) = 0;
                             interference(current_trial) = 0;
+                            context_type(current_trial) = 0;
                         elseif current_csv_table{current_trial, "Var4"} == 0 && current_csv_table{current_trial, "Var5"} ~= 2
                             conditions(current_trial,1) = 2;
                             context(current_trial) = 0;
                             interference(current_trial) = 1;
-                        elseif (current_csv_table{current_trial, "Var4"} == 1 || current_csv_table{current_trial, "Var4"} == 2) && current_csv_table{current_trial, "Var5"} == 2
+                            context_type(current_trial) = 0;
+                        % Within - Context Change (Var4 = 1) and No
+                        % Interference (Var 5 = 2)
+                        elseif current_csv_table{current_trial, "Var4"} == 1 && current_csv_table{current_trial, "Var5"} == 2
                             conditions(current_trial,1) = 3;
                             context(current_trial) = 1;
                             interference(current_trial) = 0;
-                        elseif (current_csv_table{current_trial, "Var4"} == 1 || current_csv_table{current_trial, "Var4"} == 2) && current_csv_table{current_trial, "Var5"} ~= 2
+                            context_type(current_trial) = 1;
+                        % Across context change (Var4 = 2) and No
+                        % Interference (Var 5 = 2)
+                        elseif current_csv_table{current_trial, "Var4"} == 2 && current_csv_table{current_trial, "Var5"} == 2
+                            conditions(current_trial,1) = 3;
+                            context(current_trial) = 1;
+                            interference(current_trial) = 0;
+                            context_type(current_trial) = 2;
+                        % Within - Context Change (Var4 = 1) and Interference (Var 5 = 1)
+                        elseif current_csv_table{current_trial, "Var4"} == 1 && current_csv_table{current_trial, "Var5"} ~= 2
                             conditions(current_trial,1) = 4;
                             context(current_trial) = 1;
                             interference(current_trial) = 1;
+                            context_type(current_trial) = 1;
+                        % Across - Context Change (Var4 = 1) and Interference (Var 5 = 1)
+                        elseif current_csv_table{current_trial, "Var4"} == 2 && current_csv_table{current_trial, "Var5"} ~= 2
+                            conditions(current_trial,1) = 4;
+                            context(current_trial) = 1;
+                            interference(current_trial) = 1;
+                            context_type(current_trial) = 2;
                         end
                       
                     elseif mod(current_trial,6) == 2
@@ -1509,21 +1529,41 @@ if analyze_sixlets == true
                         decision_time(end+1,1) = RTs(end) - waitRT(end);
 
                         if current_csv_table{current_trial, "Var4"} == 0 && current_csv_table{current_trial, "Var5"} == 2
-                            conditions(current_trial,1) = 5;
+                            conditions(current_trial,1) = 1;
                             context(current_trial) = 0;
                             interference(current_trial) = 0;
+                            context_type(current_trial) = 0;
                         elseif current_csv_table{current_trial, "Var4"} == 0 && current_csv_table{current_trial, "Var5"} ~= 2
-                            conditions(current_trial,1) = 6;
+                            conditions(current_trial,1) = 2;
                             context(current_trial) = 0;
                             interference(current_trial) = 1;
-                        elseif (current_csv_table{current_trial, "Var4"} == 1 || current_csv_table{current_trial, "Var4"} == 2) && current_csv_table{current_trial, "Var5"} == 2
-                            conditions(current_trial,1) = 7;
+                            context_type(current_trial) = 0;
+                        % Within - Context Change (Var4 = 1) and No
+                        % Interference (Var 5 = 2)
+                        elseif current_csv_table{current_trial, "Var4"} == 1 && current_csv_table{current_trial, "Var5"} == 2
+                            conditions(current_trial,1) = 3;
                             context(current_trial) = 1;
                             interference(current_trial) = 0;
-                        elseif (current_csv_table{current_trial, "Var4"} == 1 || current_csv_table{current_trial, "Var4"} == 2) && current_csv_table{current_trial, "Var5"} ~= 2
-                            conditions(current_trial,1) = 8;
+                            context_type(current_trial) = 1;
+                        % Across context change (Var4 = 2) and No
+                        % Interference (Var 5 = 2)
+                        elseif current_csv_table{current_trial, "Var4"} == 2 && current_csv_table{current_trial, "Var5"} == 2
+                            conditions(current_trial,1) = 3;
+                            context(current_trial) = 1;
+                            interference(current_trial) = 0;
+                            context_type(current_trial) = 2;
+                        % Within - Context Change (Var4 = 1) and Interference (Var 5 = 1)
+                        elseif current_csv_table{current_trial, "Var4"} == 1 && current_csv_table{current_trial, "Var5"} ~= 2
+                            conditions(current_trial,1) = 4;
                             context(current_trial) = 1;
                             interference(current_trial) = 1;
+                            context_type(current_trial) = 1;
+                        % Across - Context Change (Var4 = 1) and Interference (Var 5 = 1)
+                        elseif current_csv_table{current_trial, "Var4"} == 2 && current_csv_table{current_trial, "Var5"} ~= 2
+                            conditions(current_trial,1) = 4;
+                            context(current_trial) = 1;
+                            interference(current_trial) = 1;
+                            context_type(current_trial) = 2;
                         end
 
                     elseif mod(current_trial,6) == 0
@@ -1540,7 +1580,7 @@ if analyze_sixlets == true
         
             
                 %Combine all the number vectors to construct the participant's dataset
-                data_per_participant = [id_number, trial_number, repetition, block, accuracy_rates, RTs, waitRT, decision_time, conditions, context, interference];
+                data_per_participant = [id_number, trial_number, repetition, block, accuracy_rates, RTs, waitRT, decision_time, conditions, context, interference, context_type];
                             
             
                 % Append the current dataset to the final matrix
