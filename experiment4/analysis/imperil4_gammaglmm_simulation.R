@@ -33,53 +33,151 @@ colnames(combinedData) <- c(
 
 ### PREPROCESSING ----
 
-# 1) Put in your DV and IVs
 dependent_variable <- "angle1"
 independent_variables <- c("repetition", "context")
 
-dv <- sym(dependent_variable)
-
-# 1) Subject exclusions based on ANGLE1 (DV-independent)
+# 1) Subject exclusions based on ANGLE1
 bad_subjects <- combinedData %>%
-  mutate(
+  dplyr::mutate(
     subject = factor(subject),
     angle1_num = as.numeric(as.character(angle1)),
     angle1_abs = abs(((angle1_num + 180) %% 360) - 180)
   ) %>%
-  filter(is.finite(angle1_abs), is.finite(rt1), rt1 >= 0.3) %>% 
-  group_by(subject) %>%
-  summarize(mean_abs_angle1 = mean(angle1_abs, na.rm = TRUE), .groups = "drop") %>%
-  filter(mean_abs_angle1 > 45) 
+  dplyr::filter(is.finite(angle1_abs), is.finite(rt1), rt1 >= 0.3) %>% 
+  dplyr::group_by(subject) %>%
+  dplyr::summarise(
+    mean_abs_angle1 = mean(angle1_abs, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  dplyr::filter(mean_abs_angle1 > 45)
 
 message("Excluded subjects (mean abs circular error > 45°):")
 print(bad_subjects)
 
 # 2) Apply exclusion to the raw data
 combinedData_sub <- combinedData %>%
-  mutate(subject = factor(subject)) %>%
-  filter(!(subject %in% bad_subjects$subject))
+  dplyr::mutate(subject = factor(subject)) %>%
+  dplyr::filter(!(subject %in% bad_subjects$subject))
 
-# 3) Now do DV-specific pre-processing
+# 3) DV-specific pre-processing
 combinedData_sub <- combinedData_sub %>%
-  mutate(
-    raw_outcome = as.numeric(as.character(!!dv)),
+  dplyr::mutate(
+    raw_outcome = as.numeric(as.character(.data[[dependent_variable]])),
+    
     outcome = if (dependent_variable %in% c("rt1", "rt2")) {
       raw_outcome
     } else {
-      (abs(((raw_outcome + 180) %% 360) - 180))
+      abs(((raw_outcome + 180) %% 360) - 180)
     },
+    
     repetition = factor(repetition, levels = c(1, 5), labels = c("1", "5")),
     context = factor(context, levels = c(0, 1), labels = c("No Change", "Change"))
   ) %>%
-  filter(is.finite(outcome), is.finite(rt1), rt1 >= 0.3) %>%
-  filter(repetition %in% c("1","5"),
-         context %in% c("No Change","Change"))
+  dplyr::filter(is.finite(outcome), is.finite(rt1), rt1 >= 0.3) %>%
+  dplyr::filter(
+    repetition %in% c("1", "5"),
+    context %in% c("No Change", "Change")
+  )
 
 combinedData_sub <- combinedData_sub %>%
   filter(is.finite(outcome), outcome > 0)
 
+
+library(dplyr)
+library(lme4)
+library(purrr)
+
+# Make sure contrasts produce coefficient names like repetition5:contextChange
+
+# Fit model to full previous dataset or pilot subset
+base_mod <- glmer(
+  outcome ~ repetition * context + (1 | subject),
+  family = Gamma(link = "log"),
+  data = combinedData_sub
+)
+
+# Optional: set the interaction effect manually
+sim_mod <- base_mod
+fixef(sim_mod)["repetition5:contextChange"] <- 0.09
+
+
+simulate_trial_power <- function(data, model, k, nsim = 200, alpha = .05) {
+  
+  p_vals <- numeric(nsim)
+  
+  for (i in seq_len(nsim)) {
+    
+    # 1. sample k trials per subject x condition
+    design_k <- data %>%
+      group_by(subject, repetition, context) %>%
+      slice_sample(n = k, replace = TRUE) %>%
+      ungroup()
+    
+    # 2. simulate new outcome from Gamma GLMM
+    design_k$sim_y <- simulate(model, newdata = design_k, allow.new.levels = TRUE)[[1]]
+    
+    # 3. refit model
+    fit_i <- try(
+      glmer(
+        sim_y ~ repetition * context + (1 | subject),
+        family = Gamma(link = "log"),
+        data = design_k
+      ),
+      silent = TRUE
+    )
+    
+    if (inherits(fit_i, "try-error")) {
+      p_vals[i] <- NA
+    } else {
+      coef_tab <- summary(fit_i)$coefficients
+      
+      if ("repetition5:contextChange" %in% rownames(coef_tab)) {
+        p_vals[i] <- coef_tab["repetition5:contextChange", "Pr(>|z|)"]
+      } else {
+        p_vals[i] <- NA
+      }
+    }
+  }
+  
+  mean(p_vals < alpha, na.rm = TRUE)
+}
+
+k_vals <- c(10, 20, 30, 40, 50, 60, 80)
+
+trial_power <- sapply(
+  k_vals,
+  function(k) simulate_trial_power(
+    data = combinedData_sub,
+    model = sim_mod,
+    k = k,
+    nsim = 200
+  )
+)
+
+trial_power_df <- data.frame(
+  trials_per_condition = k_vals,
+  power = trial_power
+)
+
+print(trial_power_df)
+
+plot(
+  trial_power_df$trials_per_condition,
+  trial_power_df$power,
+  type = "b",
+  ylim = c(0, 1),
+  xlab = "Trials per subject × condition",
+  ylab = "Power"
+)
+
+abline(h = .80, col = "red")
+
+
+
+
+
 # Data subset to feed into the simulation
-pilot_subjects <- levels(combinedData_sub$subject)[1:20]
+pilot_subjects <- levels(combinedData_sub$subject)
 
 simFeed <- combinedData_sub %>%
   filter(subject %in% pilot_subjects)
@@ -104,12 +202,12 @@ small_mod <- pilot_mod
 fixef(small_mod)["repetition5:contextChange"] <- 0.05
 
 mid_mod <- pilot_mod
-fixef(mid_mod)["repetition5:contextChange"] <- 0.09
+fixef(mid_mod)["repetition5:contextChange"] <- 0.068
 
 large_mod <- pilot_mod
 fixef(large_mod)["repetition5:contextChange"] <- 0.11
 
-Ns <- c(10, 20, 40, 60, 80, 100, 120, 140)
+Ns <- c(30, 40, 50, 60, 70, 80, 90, 100, 110, 120)
 
 # small_mod_ext <- extend(small_mod, along = "subject", n = max(Ns))
 mid_mod_ext   <- extend(mid_mod,   along = "subject", n = max(Ns))

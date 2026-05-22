@@ -1,84 +1,96 @@
-% participant IDs
-subIDs = 13:97;
+%% A data wrangling script to conduct a mixture model analysis (Zhang & Luck, 2008)
+% Coded by A.Y. - 28.04.2026
+
+% Participant IDs
+subIDs = 13:101;
 nSubs  = numel(subIDs);
 
-% storage table (long format)
+% Storage table
 results = table();
 
+% Data file DIR template
+filename = ['/Users/ali/Desktop/visual imperil project/imperil4materials/' ...
+        'behavioral_data_exp4/imperil4dataID']; 
+
 row = 1;
+for subj = 1:nSubs
 
-for i = 1:nSubs
-
-    subID = subIDs(i);
+    subID = subIDs(subj);
 
     % skip outlier participant
+    % (determined a priori and harcoded here)
+    % (but the outlier criterion is average test 1 error collapsed across
+    % condition => 45°). 
+
     if subID == 62
         continue;
     end
 
     % build filename
-    fileName = ['/Users/ali/Desktop/visual imperil project/imperil4materials/' ...
-        'behavioral_data_exp4/imperil4dataID' num2str(subID) '.mat'];
-
-    if ~isfile(fileName)
-        warning('File missing for subject %d', subID);
-        continue
-    end
+    fileName = [filename num2str(subID) '.mat'];
 
     % load data
     dataSet = load(fileName);
 
-    if ~isfield(dataSet, 'outputMatrix')
-        warning('outputMatrix missing for subject %d', subID);
-        continue
-    end
-
-    M = dataSet.outputMatrix;
+    table = dataSet.outputMatrix;
 
     % loop over factors
-    for test = 1           % test 1 / test 2
-        for rep = [1 5]      % repetition 1 / 5
-            for context = 0:1  % no change / change
+    for test = 1           % Memory test 1 (WM item) and 2 (LTM item)
+        for rep = [1 5]      % Filter to critical repetitions only: 1 and 5
+            for context = 0:1  % Look for context change commands: 0 and 1
 
                 % select error column
                 if test == 1
-                    errCol = 10;
+                    angDisp = 10; % Angular disparity values stored here
+                    RT = 13; % Reaction time in test1
                 else
-                    errCol = 14;
+                    angDisp = 14; % Same values for the LTM item
+                    RT = 17; % Reaction time in test2
                 end
 
-                % define condition + RT filter
-                cond = (M(:,5) == rep) & ...
-                       (M(:,6) == context) & ...
-                       isfinite(M(:,10)) & ...
-                       (M(:,13) >= 0.3);
+                % Outlier rejection and trimming:
 
-                % extract errors
-                err = M(cond, errCol);
+                % My only criteria are:
 
-                % remove NaN / Inf errors
-                err = err(isfinite(err));
+                % 1) Filter out these where RT is unreasonably fast (shorter
+                % than 300 ms).
 
-                % wrap to circular error range
-                err = mod(err + 180, 360) - 180;
+                % 2) Filter trials where error is exactly 0 (because my
+                % analysis, Gamma GLMM, can't work with zeros).
 
-                % skip tiny cells
-                if numel(err) < 10
+                % 3) Filter out trials where error is NaN (test missed).
+
+                filteredData = (table(:,5) == rep) & ...
+                       (table(:,6) == context) & ...
+                       isfinite(table(:,10)) & ...
+                       (table(:,13) >= 0.3);
+
+                % Extract errors from the clean output
+                angError = table(filteredData, angDisp);
+
+                % Apply modulo once, just for good measure. 
+                % In all likelihood though, it is redundant. 
+                angError = mod(angError + 180, 360) - 180;
+
+                % Skip conditions where very few trials remain, as they may
+                % break the analysis.
+                if numel(angError) < 10
                     warning('Too few valid trials: sub %d, test %d, rep %d, ctx %d (n=%d)', ...
-                        subID, test, rep, context, numel(err));
+                        subID, test, rep, context, numel(angError));
                     continue
                 end
 
-                % skip near-zero variance cells
-                if std(err) < 1e-6
+                % Skip conditions where very variance is very little, as
+                % they may also break the analysis.
+                if std(angError) < 1e-6
                     warning('Near-zero variance: sub %d, test %d, rep %d, ctx %d', ...
                         subID, test, rep, context);
                     continue
                 end
 
-                % fit mixture model safely
+                % Fit mixture model over the dataset using MemFit toolbox. 
                 try
-                    fit = MemFit(err, StandardMixtureModel(), 'Verbosity', 0);
+                    fit = MemFit(angError, StandardMixtureModel(), 'Verbosity', 0);
 
                     % store results
                     results.subject(row,1)    = subID;
@@ -86,23 +98,24 @@ for i = 1:nSubs
                     results.repetition(row,1) = rep;
                     results.context(row,1)    = context;
 
-                    results.g(row,1)  = fit.maxPosterior(1);
-                    results.SD(row,1) = fit.maxPosterior(2);
-                    results.nTrials(row,1) = numel(err);
+                    results.g(row,1)  = fit.maxPosterior(1); % Guessing rate estimate
+                    results.SD(row,1) = fit.maxPosterior(2); % SD/Precision estimate
+                    results.nTrials(row,1) = numel(angError); % Trial count per condition
 
                     row = row + 1;
 
                 catch ME
-                    warning('Fit failed: sub %d, test %d, rep %d, ctx %d | %s', ...
-                        subID, test, rep, context, ME.message);
+                    
+                    % Some model fits may fail. In this case, continue
+                    % fiting over the next person. 
+                        disp(getReport(ME, 'extended'))
                     continue
                 end
-
             end
         end
     end
 
-    fprintf('Finished subject %d (%d/%d)\n', subID, i, nSubs);
+    fprintf('Subject finished %d (%d/%d)\n', subID, subj, nSubs);
 
 end
 
@@ -117,4 +130,3 @@ end
 % save for R
 writetable(results, 'mixture_parameters_rep1_rep5_test1_test2.csv');
 
-disp('Done. CSV ready for R.');

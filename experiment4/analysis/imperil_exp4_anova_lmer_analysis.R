@@ -16,7 +16,6 @@ library(glmmTMB)
 library(brms)
 library(ggplot2)
 library(rlang)
-library(DHARMa)
 
 options(scipen = 999)  # Avoid scientific notation
 
@@ -38,43 +37,59 @@ colnames(combinedData) <- c(
   "breakTaken", "conditions"
 )
 
+files <- list.files(base_dir, pattern = "\\.mat$", full.names = TRUE)
+
+dfs <- lapply(files, function(f) {
+  mat <- R.matlab::readMat(f)
+  as.data.frame(mat$outputMatrix)
+})
+
+combinedData <- bind_rows(dfs)
+
+colnames(combinedData) <- c(
+  "subject", "conditionUsed", "block", "trial", "repetition",
+  "context", "contextCode", "primaryColor", "secondaryColor",
+  "angle1", "initiation_time1", "movement_time1", "rt1",
+  "angle2", "initiation_time2", "movement_time2", "rt2",
+  "breakTaken", "conditions"
+)
+
+# ============================================================
+# KEEP ONLY FIRST 12 SUBJECTS
+# ============================================================
+
+# first_12_subjects <- combinedData %>%
+#   mutate(subject = factor(subject)) %>%
+#   distinct(subject) %>%
+#   arrange(as.numeric(as.character(subject))) %>%
+#   slice_head(n = 12) %>%
+#   pull(subject)
+# 
+# combinedData <- combinedData %>%
+#   mutate(subject = factor(subject)) %>%
+#   filter(subject %in% first_12_subjects)
+# 
+# message("Analyzing only these first 12 subjects:")
+# print(first_12_subjects)
+
 ### PREPROCESSING ----
 
-# # Specify participant IDs
-# subjects_to_exclude <- c(13, 14, 15, 16, 17, 18, 19, 20, 22, 23, 25, 27, 28, 30, 31, 34, 37, 40, 43, 45, 62)   # example
-# # or whatever IDs you want
-# 
-# # Make sure subject is numeric first
-# combinedData <- combinedData %>%
-#   mutate(subject = as.numeric(as.character(subject)))
-# 
-# # Version 1: dataset WITHOUT those participants
-# combinedData_kept <- combinedData %>%
-#   filter(!(subject %in% subjects_to_exclude))
-# 
-# # Version 2: dataset WITH ONLY those participants
-# combinedData_excluded <- combinedData %>%
-#   filter(subject %in% subjects_to_exclude)
-# 
-# combinedData <- combinedData_kept
-
 # 1) Put in your DV and IVs
-dependent_variable <- "rt1"
+dependent_variable <- "angle1"
 independent_variables <- c("repetition", "context")
 
 dv <- sym(dependent_variable)
 
-# 1) Subject exclusions based on ANGLE1 (DV-independent)
 bad_subjects <- combinedData %>%
   mutate(
     subject = factor(subject),
     angle1_num = as.numeric(as.character(angle1)),
     angle1_abs = abs(((angle1_num + 180) %% 360) - 180)
   ) %>%
-  filter(is.finite(angle1_abs), is.finite(rt1), rt1 >= 0.3) %>% 
+  filter(is.finite(angle1_abs), is.finite(rt1), rt1 >= 0.3, angle1_abs > 0) %>% 
   group_by(subject) %>%
   summarize(mean_abs_angle1 = mean(angle1_abs, na.rm = TRUE), .groups = "drop") %>%
-  filter(mean_abs_angle1 > 45) 
+  filter(mean_abs_angle1 > 45)
 
 message("Excluded subjects (mean abs circular error > 45°):")
 print(bad_subjects)
@@ -91,7 +106,7 @@ combinedData_sub <- combinedData_sub %>%
     outcome = if (dependent_variable %in% c("rt1", "rt2")) {
       raw_outcome
     } else {
-      (abs((((raw_outcome + 180) %% 360) - 180)))
+      abs((((raw_outcome + 180) %% 360) - 180))
     },
     repetition = factor(repetition, levels = c(1, 5), labels = c("1", "5")),
     context = factor(context, levels = c(0, 1), labels = c("No Change", "Change"))
@@ -122,7 +137,7 @@ print(descriptives)
 dput(descriptives$mean)
 dput(descriptives$sd)
 
-### RM-ANOVA
+# RM-ANOVA
 
 afex_options(type = 3, check_contrasts = TRUE)
 aov_mod <- aov_ez(
@@ -142,10 +157,12 @@ anova_tbl$pes <- with(
 
 print(anova_tbl)
 
-# qqnorm(resid(aov_mod))
- 
 
+qqnorm(resid(aov_mod))
+qqline(resid(aov_mod))
  
+## Linear Mixed Modelling
+
  lmm_mod <- lmer(
    outcome ~ repetition * context + (1 | subject),
    data = combinedData_sub,
@@ -155,6 +172,9 @@ print(anova_tbl)
  
  summary(lmm_mod)
  
+ 
+ 
+ ## Gamma GLMM
  combinedData_gamma <- combinedData_sub %>%
    filter(is.finite(outcome), outcome > 0)
  
@@ -176,12 +196,18 @@ print(anova_tbl)
  dput(descriptives_gamma$mean)
  dput(descriptives_gamma$sd)
  
+ 
+ ## Conduct a gamma GLMM analysis
+ 
  glmm_mod <- glmmTMB(
    outcome ~ repetition * context + (1 | subject),
    data = combinedData_gamma,
    family = Gamma(link = "log")
  )
  
+ # summary(glmm_mod)
+ 
+ ## Edit the analysis output to include some useful classes of values
  coef_df <- as.data.frame(summary(glmm_mod)$coefficients$cond)
  coef_df$error_ratio <- exp(coef_df$Estimate)
  coef_df$percent_change <- (exp(coef_df$Estimate) - 1) * 100
@@ -204,9 +230,12 @@ print(anova_tbl)
  )]
  coef_df
  
+ ## To decompose the significant two-way interaction, estimate marginal means and contrast pair-wise
  emm_gamma <- emmeans(glmm_mod, ~ context | repetition, type = "response")
  pairs(emm_gamma)
 
+ 
+ # PLOT GAMMA GLMM RESULTS
  emm_plot <- emmeans(
    glmm_mod,
    ~ repetition * context,
@@ -215,7 +244,7 @@ print(anova_tbl)
  
  emm_df <- as.data.frame(confint(emm_plot))
  
- ggplot(
+ plot2save <- ggplot(
    emm_df,
    aes(
      x = factor(repetition),
@@ -269,3 +298,13 @@ print(anova_tbl)
      axis.ticks.length = unit(0.2, "cm"),
      text = element_text(family = "Arial")
    )
+ 
+ plot2save
+ # 
+ ggsave(
+   '/Users/ali/Desktop/plot2save.png',
+   plot = plot2save,
+   width = dev.size("in")[1],
+   height = dev.size("in")[2],
+   dpi = 300       # resolution
+ )

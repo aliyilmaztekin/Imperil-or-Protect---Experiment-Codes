@@ -1,0 +1,200 @@
+# Imperil or Protect - Experiment 4 - ANOVA/LMER analysis
+# Coded by A.Y. 
+
+### SETUP/PARAMETERS ----
+
+library(afex)
+afex_options(type = 3, check_contrasts = TRUE)
+library(R.matlab)
+library(dplyr)
+library(ggplot2)
+library(emmeans)
+library(stringr)
+library(lme4)
+library(lmerTest)   # for Satterthwaite df + p-values
+library(glmmTMB)
+library(brms)
+library(ggplot2)
+library(rlang)
+library(DHARMa)
+
+options(scipen = 999)  # Avoid scientific notation
+
+base_dir <- "/Users/ali/Desktop/visual imperil project/imperil4materials/behavioral_data_exp4/"
+
+files <- list.files(base_dir, pattern = "\\.mat$", full.names = TRUE)
+
+dfs <- lapply(files, function(f) {
+  mat <- R.matlab::readMat(f)
+  as.data.frame(mat$outputMatrix)
+})
+
+combinedData <- bind_rows(dfs)
+colnames(combinedData) <- c(
+  "subject", "conditionUsed", "block", "trial", "repetition",
+  "context", "contextCode", "primaryColor", "secondaryColor",
+  "angle1", "initiation_time1", "movement_time1", "rt1",
+  "angle2", "initiation_time2", "movement_time2", "rt2",
+  "breakTaken", "conditions"
+)
+
+### PREPROCESSING ----
+
+# # Specify participant IDs
+# subjects_to_exclude <- c(13, 14, 15, 16, 17, 18, 19, 20, 22, 23, 25, 27, 28, 30, 31, 34, 37, 40, 43, 45, 62)   # example
+# # or whatever IDs you want
+# 
+# # Make sure subject is numeric first
+# combinedData <- combinedData %>%
+#   mutate(subject = as.numeric(as.character(subject)))
+# 
+# # Version 1: dataset WITHOUT those participants
+# combinedData_kept <- combinedData %>%
+#   filter(!(subject %in% subjects_to_exclude))
+# 
+# # Version 2: dataset WITH ONLY those participants
+# combinedData_excluded <- combinedData %>%
+#   filter(subject %in% subjects_to_exclude)
+# 
+# combinedData <- combinedData_kept
+
+# 1) Put in your DV and IVs
+dependent_variable <- "angle1"
+independent_variables <- c("repetition", "context")
+
+dv <- sym(dependent_variable)
+
+# 1) Subject exclusions based on ANGLE1 (DV-independent)
+bad_subjects <- combinedData %>%
+  mutate(
+    subject = factor(subject),
+    angle1_num = as.numeric(as.character(angle1)),
+    angle1_abs = abs(((angle1_num + 180) %% 360) - 180)
+  ) %>%
+  filter(is.finite(angle1_abs), is.finite(rt1), rt1 >= 0.3) %>% 
+  group_by(subject) %>%
+  summarize(mean_abs_angle1 = mean(angle1_abs, na.rm = TRUE), .groups = "drop") %>%
+  filter(mean_abs_angle1 > 45) 
+
+message("Excluded subjects (mean abs circular error > 45°):")
+print(bad_subjects)
+
+# 2) Apply exclusion to the raw data
+combinedData_sub <- combinedData %>%
+  mutate(subject = factor(subject)) %>%
+  filter(!(subject %in% bad_subjects$subject))
+
+# 3) Now do DV-specific pre-processing
+combinedData_sub <- combinedData_sub %>%
+  mutate(
+    raw_outcome = as.numeric(as.character(!!dv)),
+    outcome = if (dependent_variable %in% c("rt1", "rt2")) {
+      raw_outcome
+    } else {
+      (abs((((raw_outcome + 180) %% 360) - 180)))
+    },
+    repetition = factor(repetition, levels = c(1, 5), labels = c("1", "5")),
+    context = factor(context, levels = c(0, 1), labels = c("No Change", "Change"))
+  ) %>%
+  filter(is.finite(outcome), is.finite(rt1), rt1 >= 0.3) %>%
+  filter(repetition %in% c("1","5"),
+         context %in% c("No Change","Change"))
+
+
+data_RMAnova <- combinedData_sub %>%
+  group_by(subject, repetition, context) %>%
+  summarize(outcome = mean(outcome, na.rm = TRUE), .groups = "drop") %>%
+  mutate(subject = factor(subject))
+
+descriptives <- data_RMAnova %>%
+  group_by(repetition, context) %>%
+  summarize(
+    mean = mean(outcome),
+    sd = sd(outcome),
+    n_subj = n_distinct(subject),
+    se = sd / sqrt(n_subj),
+    .groups="drop"
+  )
+print(descriptives)
+
+
+# If you want all the decimals
+dput(descriptives$mean)
+dput(descriptives$sd)
+
+
+data_split <- combinedData_sub %>%
+  group_by(subject, repetition, context) %>%
+  mutate(trial_id = row_number()) %>%
+  ungroup()
+
+
+split_half_once <- function(data) {
+  
+  # randomly assign trials to halves within each subject × condition
+  data_rand <- data %>%
+    group_by(subject, repetition, context) %>%
+    mutate(half = sample(rep(c("A", "B"), length.out = n()))) %>%
+    ungroup()
+  
+  # compute mean per half
+  means <- data_rand %>%
+    group_by(subject, repetition, context, half) %>%
+    summarize(mean_outcome = mean(outcome, na.rm = TRUE), .groups = "drop")
+  
+  # reshape wide (A vs B)
+  means_wide <- means %>%
+    tidyr::pivot_wider(names_from = half, values_from = mean_outcome)
+  
+  # correlate across all subject × condition rows
+  r <- cor(means_wide$A, means_wide$B, use = "complete.obs")
+  
+  return(r)
+}
+
+set.seed(123)
+
+n_iter <- 1000
+r_vals <- replicate(n_iter, split_half_once(data_split))
+
+# average raw correlation
+mean_r <- mean(r_vals, na.rm = TRUE)
+
+# Spearman–Brown corrected reliability
+rel_corrected <- (2 * mean_r) / (1 + mean_r)
+
+mean_r
+rel_corrected
+
+compute_reliability_k <- function(data, k) {
+  
+  data_k <- data %>%
+    group_by(subject, repetition, context) %>%
+    slice_sample(n = k, replace = FALSE) %>%
+    ungroup()
+  
+  r_vals <- replicate(200, split_half_once(data_k))
+  
+  mean_r <- mean(r_vals, na.rm = TRUE)
+  
+  # Spearman–Brown correction
+  rel <- (2 * mean_r) / (1 + mean_r)
+  
+  return(rel)
+}
+
+k_vals <- seq(10, 80, by = 10)
+
+rel_curve <- sapply(k_vals, function(k)
+  compute_reliability_k(data_split, k)
+)
+
+plot(k_vals, rel_curve,
+     type = "b",
+     pch = 16,
+     xlab = "Trials per condition (k)",
+     ylab = "Reliability (Spearman–Brown)",
+     main = "Split-half Reliability of Condition Means")
+
+abline(h = 0.8, col = "red", lty = 2)
+

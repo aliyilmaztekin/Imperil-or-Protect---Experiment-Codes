@@ -38,7 +38,7 @@ combinedData <- raw_data_data_frame
 ### PREPROCESSING
 
 # 1) Put in your DV and IVs
-dependent_variable <- "rt"
+dependent_variable <- "angle"
 independent_variables <- c("repetition", "context_type", "interference")
 
 dv <- sym(dependent_variable)
@@ -191,7 +191,7 @@ emm_plot <- emmeans(
 
 emm_df <- as.data.frame(confint(emm_plot))
 
-ggplot(
+plot2save <- ggplot(
   emm_df,
   aes(
     x = factor(repetition),
@@ -252,3 +252,13 @@ ggplot(
     axis.ticks.length = unit(0.2, "cm"),
     text = element_text(family = "Arial")
   )
+
+plot2save
+# 
+ggsave(
+  '/Users/ali/Desktop/plot2save.png',
+  plot = plot2save,
+  width = dev.size("in")[1],
+  height = dev.size("in")[2],
+  dpi = 300       # resolution
+)
