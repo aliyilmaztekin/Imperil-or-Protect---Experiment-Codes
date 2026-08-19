@@ -9,11 +9,11 @@ nSubs  = numel(subIDs);
 filename = ['/Users/ali/Desktop/visual imperil project/imperil4materials/' ...
         'behavioral_data_exp4/imperil4dataID']; 
 
-
 allResults = cell(nSubs, 1);
 
-parpool(8)
+parpool(7)
 
+% 1: Filter to rep 1 and 5; 2: All repetitions
 analysis = 2;
  
 if analysis == 1
@@ -56,14 +56,6 @@ if analysis == 1
                     angError = data(filteredData, angDisp);
                     angError = mod(angError + 180, 360) - 180;
     
-                    if numel(angError) < 10
-                        continue
-                    end
-    
-                    if std(angError) < 1e-6
-                        continue
-                    end
-    
                     try
                         fit = MemFit(angError, StandardMixtureModel(), 'Verbosity', 0);
     
@@ -91,6 +83,9 @@ if analysis == 1
     
     end
     
+    % Trim out the outlier cell
+    allResults(50) = [];
+
     results = vertcat(allResults{:});
     
     results.subject    = categorical(results.subject);
@@ -98,10 +93,14 @@ if analysis == 1
     results.repetition = categorical(results.repetition);
     results.context    = categorical(results.context);
     
-    writetable(results, 'mixture_parameters_rep1_rep5_test1_test2.csv');
+    save_dest = "/Users/ali/Desktop/Imperil-or-Protect---Experiment-Codes/experiment4/mixture_modelling";
+
+    writetable(results, fullfile(save_dest,'mixture_parameters_rep1_rep5.csv'));
     
     toc
-    
+
+    % Shut down the parallel processing pool
+    delete(gcp("nocreate"))
 end
     
 
@@ -122,7 +121,7 @@ if analysis == 2
     
     % Start parallel pool if one is not already open
     if isempty(gcp('nocreate'))
-        parpool(8)
+        parpool(7)
     end
 
     tic
@@ -200,13 +199,19 @@ if analysis == 2
     
     end
     
+    allResults(50) = [];
     results = vertcat(allResults{:});
     
     results.subject    = categorical(results.subject);
     results.test       = categorical(results.test);
     results.repetition = categorical(results.repetition);
+
+    save_dest = "/Users/ali/Desktop/Imperil-or-Protect---Experiment-Codes/experiment4/mixture_modelling";
     
-    writetable(results, 'mixture_parameters_all_repetitions_test1_test2.csv');
+    writetable(results, fullfile(save_dest, 'mixture_parameters_all_repetitions.csv'));
     
     toc
+
+    % Shut down the parallel processing pool
+    delete(gcp("nocreate"))
 end

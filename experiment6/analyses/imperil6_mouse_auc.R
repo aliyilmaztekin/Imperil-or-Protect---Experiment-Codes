@@ -1,4 +1,4 @@
-# Imperil or Protect - Experiment 4 - ANOVA/LMER analysis
+# Imperil or Protect - Experiment 6 - Alpha/Beta/Gamma/Delta Mouse Trajectory analyses
 # Coded by A.Y. 
 
 ### SETUP/PARAMETERS ----
@@ -19,12 +19,12 @@ library(rlang)
 
 options(scipen = 999)  # Avoid scientific notation
 
-mat <- readMat("/Users/ali/Desktop/visual imperil project/imperil4materials/pilot_data/mouse_auc_test2.mat")
+mat <- readMat('/Users/ali/Desktop/Imperil-or-Protect---Experiment-Codes/experiment6/design_delta/mouse_auc_repeated.mat')
 
 aucOutput <- as.data.frame(mat$aucOutput)
 
 colnames(aucOutput) <- c(
-  "subject", "trial", "test", "condition",
+  "subject", "trial", "analysisItem", "condition",
   "repetition", "context", "auc"
 )
 
@@ -45,3 +45,8 @@ mod_auc <- lmer(
 
 summary(mod_auc)
 anova(mod_auc)
+
+emm_auc <- emmeans(mod_auc, ~ context | repetition)
+pairs(emm_auc)
+
+

@@ -1,191 +1,209 @@
-# -----------------------------
-# Libraries
-# -----------------------------
 library(R.matlab)
 library(dplyr)
 library(tidyr)
-library(ez)
 library(ggplot2)
-library(moments)
 library(emmeans)
 library(lme4)
 library(lmerTest)  # optional for p-values
+library(glmmTMB)
+library(DHARMa)
+library(car)
 options(scipen = 999)  # Avoid scientific notation
 
-# -----------------------------
-# 1. Load MAT files
-# -----------------------------
-raw_data <- "/Users/ali/Desktop/visual imperil project/imperil_all_analyses_data/all_data_experiment2_surprise_anova.mat"
+raw_data <- "/Users/ali/Desktop/visual imperil project/imperil_all_analyses_data/all_data_experiment2_surprise.mat"
 raw_data_read <- readMat(raw_data)
 
 # Extract numeric matrix and convert to data frame
-raw_data_matrix <- raw_data_read$all.data.experiment2.surprise.anova
+raw_data_matrix <- raw_data_read$all.data.experiment2.surprise
 raw_data_data_frame <- as.data.frame(raw_data_matrix)
 
 # Assign column names
 colnames(raw_data_data_frame) <- c(
-  "subject", "trial", "repetition", "context", "interference",
-  "angle", "rt", "initiation_time", "movement_time",
-  "binary_acc"
-)
+  "subject", "trial", "context", "interference", "interference_type",
+  "binary_acc", "angle", "rt", "waitRT", "decisionTime")
 
+### CHOOSE DV TO ANALYZE
 combinedData <- raw_data_data_frame
+dv <- "angle"
 
-
-# -----------------------------
-# 2. Filter relevant IVs and log-transform DV
-# -----------------------------
-
-dependent_variable <- "rt"
-
-# # Choose epsilon based on DV
-epsilon <- 1e-6
+### PREPROCESSING
+combinedData$raw_outcome <- combinedData[[dv]]
 
 combinedData_sub <- combinedData %>%
-  mutate(
-    DV = log(.data[[dependent_variable]] + epsilon),  # add epsilon only if needed
+  dplyr::mutate(
+    raw_outcome = as.numeric(as.character(raw_outcome)),
+    rt = as.numeric(as.character(rt)),
+    
+    outcome = if (dv %in% c("rt", "waitRT", "decisionTime", "binary_acc")) {
+      raw_outcome
+    } else {
+      abs(((raw_outcome + 180) %% 360) - 180)
+    },
+    
     subject = factor(subject),
-    context = factor(context),
-    interference = factor(interference)
+    context = factor(context, levels = c(0, 1), labels = c("No Change", "Change")),
+    interference = factor(interference, levels = c(0, 1), labels = c("No Interference", "Interference"))
   ) %>%
-  filter(!is.na(DV))
+  dplyr::filter(
+    is.finite(outcome),
+    is.finite(rt),
+    rt >= 0.3,
+    context %in% c("No Change", "Change"),
+    interference %in% c("No Interference", "Interference")
+  )
 
-print(nrow(combinedData_sub))
-
-# -----------------------------
-# 3. Remove outliers per participant (±2.5 SD)
-# -----------------------------
+# Remove outlier participants
 combinedData_sub <- combinedData_sub %>%
-  group_by(subject) %>%
-  mutate(mean_DV = mean(DV, na.rm = TRUE),
-         sd_DV   = sd(DV, na.rm = TRUE)) %>%
-  ungroup() %>%
-  filter(DV >= (mean_DV - 2.5 * sd_DV) &
-           DV <= (mean_DV + 2.5 * sd_DV)) %>%
-  select(-mean_DV, -sd_DV)  # drop temporary columns
+  dplyr::filter(!as.character(subject) %in% c("14", "33")) %>%
+  droplevels()
 
-print(nrow(combinedData_sub))
+### ANALYSIS
 
-
-# trial-level data → RM ANOVA
-anovaResult <- ezANOVA(
-  data = combinedData_sub,
-  dv = DV,
-  wid = subject,
-  within = .(context, interference),
-  type = 3,
-  detailed = TRUE
-)
-
-anova_clean <- anovaResult$ANOVA %>%
-  mutate(
-    eta_p2 = SSn / (SSn + SSd)
-  ) %>%
-  mutate(across(where(is.numeric), ~ round(.x, 3)))
-
-print(anova_clean)
-
-
-
-### GENERALIZED MIXED MODEL: RECOGNITION TASK
-
-combinedData_acc <- combinedData %>%
-  mutate(
-    subject = factor(subject),
-    context = factor(context),
-    interference = factor(interference),
-    binary_acc = as.factor(binary_acc)
-  )
-
-# Fit logistic mixed model
-model_acc <- glmer(
-  binary_acc ~ context * interference + (1 | subject),
-  data = combinedData_acc,
-  family = binomial
-)
-
-summary(model_acc)
-
-
-acc_summary <- combinedData_acc %>%
-  group_by(context, interference) %>%
-  summarise(
-    mean_acc = mean(as.numeric(as.character(binary_acc))),  # convert factor → numeric
-    n = n(),                                                # number of trials in cell
-    .groups = "drop"
-  ) %>%
-  mutate(
-    percent_acc = round(mean_acc * 100, 2)
-  )
-
-print(acc_summary)
-
-
-overall_acc <- combinedData_acc %>%
-  summarise(
-    overall = mean(as.numeric(as.character(binary_acc))),
-    percent = round(overall * 100, 2)
-  )
-
-print(overall_acc)
-
-### Descriptive statistics: 
-
-combinedData_desc <- combinedData %>%
-  mutate(
-    DV_raw = .data[[dependent_variable]],  # add epsilon only if needed
-    subject = factor(subject),
-    context = factor(context),
-    interference = factor(interference)
-  ) %>%
-  filter(!is.na(DV_raw))
-
-# Outlier rejection
-combinedData_desc <- combinedData_desc %>%
-  group_by(subject) %>%
-  mutate(
-    mean_raw = mean(DV_raw, na.rm = TRUE),
-    sd_raw   = sd(DV_raw, na.rm = TRUE)
-  ) %>%
-  ungroup() %>%
-  filter(
-    DV_raw >= (mean_raw - 2.5 * sd_raw) &
-      DV_raw <= (mean_raw + 2.5 * sd_raw)
-  ) %>%
-  select(-mean_raw, -sd_raw)
-
-# Subset the data down to the critical trials
-combinedData_desc <- combinedData_desc %>%
-  filter(
-    context %in% c(0, 1),
-    interference %in% c(0, 1)
-  )
-
-# Compute descriptive stats for each condition (means and SDs)
-descriptives <- combinedData_desc %>%
-  group_by(context, interference) %>%
-  summarize(
-    mean_raw = mean(DV_raw, na.rm = TRUE),
-    sd_raw   = sd(DV_raw, na.rm = TRUE),
-    n        = n(),
+# Subject-level condition means
+# This makes each subject x condition cell contribute equally,
+# instead of giving more weight to conditions with more trials.
+subject_means <- combinedData_sub %>%
+  dplyr::group_by(subject, context, interference) %>%
+  dplyr::summarise(
+    outcome_mean = mean(outcome, na.rm = TRUE),
+    n_trials = dplyr::n(),
     .groups = "drop"
   )
 
-print(descriptives)
+# Optional: check trial count imbalance at subject level
+trial_count_summary <- subject_means %>%
+  dplyr::group_by(context, interference) %>%
+  dplyr::summarise(
+    mean_trials = mean(n_trials),
+    min_trials = min(n_trials),
+    max_trials = max(n_trials),
+    .groups = "drop"
+  )
 
+print(trial_count_summary)
 
-#estimatedmarginalmeans
+### DESCRIPTIVE STATISTICS
 
-emm_acc <- emmeans(model_acc, ~ context * interference, type = "response")
-emm_acc
-pairs(emm_acc)
+# Trial counts per condition, from trial-level data
+trial_counts <- combinedData_sub %>%
+  dplyr::group_by(context, interference) %>%
+  dplyr::summarise(
+    n_trials = dplyr::n(),
+    n_subjects_raw = dplyr::n_distinct(subject),
+    .groups = "drop"
+  )
 
+if (dv == "binary_acc") {
+  
+  # First calculate accuracy separately for each subject in each condition
+  subject_descriptives <- combinedData_sub %>%
+    dplyr::group_by(subject, context, interference) %>%
+    dplyr::summarise(
+      acc = mean(outcome, na.rm = TRUE),
+      n_trials_subject = dplyr::n(),
+      .groups = "drop"
+    )
+  
+  # Then summarize across subjects
+  descriptives <- subject_descriptives %>%
+    dplyr::group_by(context, interference) %>%
+    dplyr::summarise(
+      mean_acc = mean(acc, na.rm = TRUE) * 100,
+      sd_acc = sd(acc, na.rm = TRUE) * 100,
+      n_subjects = dplyr::n(),
+      se_acc = sd(acc, na.rm = TRUE) / sqrt(n_subjects) * 100,
+      mean_trials_per_subject = mean(n_trials_subject, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    dplyr::left_join(trial_counts, by = c("context", "interference"))
+  
+  descriptives_display <- descriptives %>%
+    dplyr::select(
+      context,
+      interference,
+      mean_acc,
+      sd_acc,
+      se_acc,
+      n_subjects,
+      n_trials,
+      mean_trials_per_subject
+    ) %>%
+    dplyr::mutate(
+      mean_acc = sprintf("%.1f", mean_acc),
+      sd_acc = sprintf("%.1f", sd_acc),
+      se_acc = sprintf("%.1f", se_acc),
+      mean_trials_per_subject = sprintf("%.1f", mean_trials_per_subject)
+    )
+  
+} else {
+  
+  # For continuous outcomes, summarize participant-level condition means
+  subject_descriptives <- combinedData_sub %>%
+    dplyr::group_by(subject, context, interference) %>%
+    dplyr::summarise(
+      outcome_mean = mean(outcome, na.rm = TRUE),
+      n_trials_subject = dplyr::n(),
+      .groups = "drop"
+    )
+  
+  descriptives <- subject_descriptives %>%
+    dplyr::group_by(context, interference) %>%
+    dplyr::summarise(
+      AVG = mean(outcome_mean, na.rm = TRUE),
+      SD = sd(outcome_mean, na.rm = TRUE),
+      n_subjects = dplyr::n(),
+      SE = SD / sqrt(n_subjects),
+      mean_trials_per_subject = mean(n_trials_subject, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    dplyr::left_join(trial_counts, by = c("context", "interference"))
+  
+  descriptives_display <- descriptives %>%
+    dplyr::select(
+      context,
+      interference,
+      AVG,
+      SD,
+      SE,
+      n_subjects,
+      n_trials,
+      mean_trials_per_subject
+    ) %>%
+    dplyr::mutate(
+      AVG = sprintf("%.3f", AVG),
+      SD = sprintf("%.3f", SD),
+      SE = sprintf("%.3f", SE),
+      mean_trials_per_subject = sprintf("%.1f", mean_trials_per_subject)
+    )
+}
+print(descriptives_display)
 
-lmm_angle <- lmer(
-  DV ~ context * interference + (1 | subject),
-  data = combinedData_sub
-)
-emm_angle <- emmeans(lmm_angle, ~ context * interference)
-emm_angle
-
-
+if (dv == "binary_acc") {
+  
+  mod_acc <- lme4::glmer(
+    binary_acc ~ context * interference + (1 | subject),
+    data   = combinedData_sub,
+    family = binomial(link = "logit")
+  )
+  car::Anova(mod_acc, type = 2)   
+  
+  rep_emm <- emmeans(mod_acc, ~ context, type = "response")   # marginal means + ratio  ← the estimate you report
+  rep_contrast <- contrast(rep_emm, method = "pairwise", infer= TRUE)
+  print(rep_contrast)
+  
+} else {
+  
+  # LME
+  formula <- as.formula("outcome ~ context * interference + (1 | subject)")
+  
+  lme_test <- lmerTest::lmer(formula, data = combinedData_sub)
+  
+  omnibus_test <- car::Anova(lme_test, type = 2, test.statistic = "F")
+  print(omnibus_test)
+  
+  rep_emm <- emmeans(lme_test, ~ context | interference)   # marginal means + ratio  ← the estimate you report
+  rep_contrast <- contrast(rep_emm, method = "pairwise", infer= TRUE)
+  print(rep_contrast)
+  
+  
+}
