@@ -705,7 +705,8 @@ conditionMatrix(:,5) = reshape(colorsMat((nCoupleColors + 1):end, :), nTrialsTot
     %% Rewrite image names 
     frontEnd = wildcardPattern + '/';
     imPrefix = "obj";
-    imSuffix = "-resized.png";
+    imSuffix = '-resized.png';
+
 
     for rewrite = 1:nTrials
         curRow = imageMatrix(rewrite,:);        % check orientation
@@ -715,13 +716,11 @@ conditionMatrix(:,5) = reshape(colorsMat((nCoupleColors + 1):end, :), nTrialsTot
             objID = erase(curRow{item}, frontEnd);
             curRow{item} = objID;
 
-            objID2 = erase(curRow2{item}, frontEnd); 
-            objID2 = erase(objID2, [imPrefix, imSuffix]);
-
+            objID2 = erase(curRow2{item}, frontEnd); erase(curRow2{item}, imPrefix);
             curRow2{item} = objID2;
         end
         imageMatrix(rewrite,:) = curRow;
-        conditionMatrix(rewrite,14:16) = str2double(curRow2);
+        conditionMatrix(rewrite,14:16) = (curRow2);
     end
 
     %% Extract Image IDs 
@@ -753,11 +752,11 @@ conditionMatrix(:,5) = reshape(colorsMat((nCoupleColors + 1):end, :), nTrialsTot
     % save(fullPathTrain, 'trainingMatrix', 'trainingImageMatrix');
 
     %% Save the results in the JavaScript format
-    fid = fopen('conditionMatrixTest.json', "w"); 
+    fid = fopen('conditionMatrix1.json', "w"); 
     fprintf(fid, '%s', jsonencode(conditionMatrix)); 
     fclose(fid);
 
-    fid = fopen('imageMatrixTest.json', "w"); 
+    fid = fopen('imageMatrix1.json', "w"); 
     fprintf(fid, '%s', jsonencode(imageMatrix)); 
     fclose(fid);
 
