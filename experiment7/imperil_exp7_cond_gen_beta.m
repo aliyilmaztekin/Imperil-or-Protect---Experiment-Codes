@@ -1,21 +1,13 @@
-%% Imperil or Protect 6 - Condition Matrix Generator
+%% Imperil or Protect 7 - Condition Matrix Generator
 % Coded by A.Y.
 
 % Conception: 21.04.2026
-% v1 - 23.04.2026: first version finalized
-% v2 - 25.04.2026: Change of design: Mem 1 array items are now to be positioned 
-% from each other at a fixed offset of 120°
-% and this configuration should be rotated by a random
-% theta at every series. 
+% v1 - 23.04.2026: Design alpha
+% v2 - 25.04.2026: Design beta. Change of design: Mem load 3 -> 2
 
-% v3 - design beta - 18.05.2026
-% v4 - design gamma - 22.05.2026
-% v5 - design delta - 24.05.2026
-
-nTrials = 900; % Can be 480, 600 or 720
+nTrials = 720; % Can be 480, 600, 720 or 900
 
 %% Relevant DIRs
-
 % Get the folder where this script is located
 experimentRoot = fileparts(mfilename('fullpath'));
 cd(experimentRoot);
@@ -23,8 +15,10 @@ cd(experimentRoot);
 % Add all subfolders to MATLAB path
 addpath(genpath(experimentRoot));
 
-stimuliDIR = fullfile(experimentRoot, 'TestObjectsTransparent');
-trainingStimuliDIR = fullfile(experimentRoot, 'trainingStimuliExp6');
+imageLocation = '/Users/ali/Desktop/Imperil-or-Protect---Experiment-Codes/experiment6';
+
+stimuliDIR = fullfile(imageLocation, 'TestObjectsTransparent');
+trainingStimuliDIR = fullfile(imageLocation, 'trainingStimuliExp6');
 
 % Total number of repetition series to generate based on desired trial
 % count. 720 total -> 120 series, nSeriesMain trials -> nSeriesMain series
@@ -42,7 +36,7 @@ elseif nTrials == 900
     nSeriesMain = nTrials / 6;
     nTrialsPCond = nTrials/6/2;
 else
-    error('Unexpected nTrials value. nTrials must be 480, 600, or 720.');
+    error('Unexpected nTrials value. nTrials must be 480, 600, 720 or 900');
 end
 
 nTrialsTrain = 60;
@@ -60,7 +54,7 @@ for condFile = 1:1
     seriesSequence = (1:6)'; 
     longSequence = repmat(seriesSequence, nSeriesTotal, 1); 
   
-    conditionMatrix = NaN(nTrialsTotal, 16); 
+    conditionMatrix = NaN(nTrialsTotal, 10); 
     conditionMatrix(:,1) = longSequence;
 
     %% ===================== CONTEXT CHANGE VALUES =====================
@@ -80,11 +74,9 @@ for condFile = 1:1
     conditionMatrix(rep1idx, 2) = rep1random;
     conditionMatrix(rep5idx, 2) = rep5random;
 
-    % JavaScript may not like dealing with NaNs. So, switch them out for
+    % JavaScript doesn't like NaNs. So, switch them out for
     % 9s.
     conditionMatrix(isnan(conditionMatrix(:,2)), 2) = 9;
-
-    %% ===================== COLOR ASSIGNMENT =====================
     
      %% ===================== COLOR ASSIGNMENT =====================
 
@@ -93,9 +85,9 @@ for condFile = 1:1
     maxOuterAttempts = 1000;
     colorOffset = 40;
 
-    nCoupleColors = 2;
+    nCoupleColors = 1; % Decreased from 2 repeated items
     nMainColorsPerSeries = 6;
-    nColorsPerSeries = nCoupleColors + nMainColorsPerSeries;  % 8
+    nColorsPerSeries = nCoupleColors + nMainColorsPerSeries;  % 7 unique color hues per series
 
     % Rendered stimuli only exist for degrees 1-359 (RotateExplicitPar.m
     % runs th = 1:359, there is no frame 0). So the space these color/hue
@@ -197,7 +189,7 @@ stimuliPaths = fullfile({stimuliFiles.folder}, {stimuliFiles.name});
 
 nStimuli = numel(stimuliPaths);
 
-nMem1PerSeries = 2;     % couple images
+nMem1PerSeries = 1;     % Decreased from 2 repeated items
 nTrialsPerSeries = 6;   % 6-trial streak/miniblock
 
 nSelectMain = nSeriesMain * nMem1PerSeries;
@@ -317,9 +309,7 @@ for restart = 1:maxRestarts
         % Find all repeated/couple positions for this same image.
         % This will be empty for images that were not selected as couple images.
         mem1PositionsForCurImg = find( ...
-            strcmp(combinedMem1ImagePaths(:,1), curImg) | ...
-            strcmp(combinedMem1ImagePaths(:,2), curImg) ...
-        );
+            strcmp(combinedMem1ImagePaths(:,1), curImg));
 
         for attempt = 1:triesPerImage
 
@@ -438,11 +428,10 @@ end
 
 %% ===================== BUILD FINAL IMAGE MATRIX =====================
 
-imageMatrix = cell(nTrials, 3);
+imageMatrix = cell(nTrials, 2);
 
 imageMatrix(:,1) = combinedMem1ImagePaths(:,1);
-imageMatrix(:,2) = combinedMem1ImagePaths(:,2);
-imageMatrix(:,3) = combinedMem2ImagePaths;
+imageMatrix(:,2) = combinedMem2ImagePaths;
 
   %% ===================== TRAINING IMAGES =====================%% ===================== TRAINING IMAGE ASSIGNMENT =====================
 
@@ -501,9 +490,8 @@ baseSeriesOrder = baseSeriesOrder(randperm(numel(baseSeriesOrder)));
 
 % Columns:
 %   1 = repeated mem1 image 1
-%   2 = repeated mem1 image 2
-%   3 = trial-specific mem2 image
-trainingImageMatrix = cell(nTrialsTrain, 3);
+%   2 = trial-specific mem2 image
+trainingImageMatrix = cell(nTrialsTrain, 2);
 
 for s = 1:nTrainingSeries
 
@@ -521,10 +509,9 @@ for s = 1:nTrainingSeries
 
     % Repeat the same 2 mem1 images across all 6 trials of this block.
     trainingImageMatrix(blockStart:blockEnd, 1) = repmat(curMem1Imgs(1), 6, 1);
-    trainingImageMatrix(blockStart:blockEnd, 2) = repmat(curMem1Imgs(2), 6, 1);
 
     % One mem2 image per trial.
-    trainingImageMatrix(blockStart:blockEnd, 3) = curMem2Imgs(:);
+    trainingImageMatrix(blockStart:blockEnd, 2) = curMem2Imgs(:);
 end
 
   %% ===================== STORE COLORS =====================
@@ -539,8 +526,7 @@ if nTrialsTotal ~= nSeriesTotal * 6
 end
 
 conditionMatrix(:,3) = reshape(repmat(colorsMat(1,:), 6, 1), nTrialsTotal, 1);
-conditionMatrix(:,4) = reshape(repmat(colorsMat(2,:), 6, 1), nTrialsTotal, 1);
-conditionMatrix(:,5) = reshape(colorsMat((nCoupleColors + 1):end, :), nTrialsTotal, 1);
+conditionMatrix(:,4) = reshape(colorsMat((nCoupleColors + 1):end, :), nTrialsTotal, 1);
 
 
     %% ===================== LOCATION ASSIGNMENT =====================
@@ -555,7 +541,7 @@ conditionMatrix(:,5) = reshape(colorsMat((nCoupleColors + 1):end, :), nTrialsTot
         rotations(theta) = remSpace(randi(numel(remSpace)));
     end
     rotations = repelem(rotations, 6, 1);
-    conditionMatrix(:,6) = rotations;
+    conditionMatrix(:,5) = rotations;
 
     %% ===================== SPLIT TRAINING FROM CONDITION MATRIX =====================
 
@@ -599,16 +585,14 @@ conditionMatrix(:,5) = reshape(colorsMat((nCoupleColors + 1):end, :), nTrialsTot
     % In critical trials (reps 1 & 5), all three must be tested at fixed
     % probs
 
-    % 75 trials per condition:
+    % 60 trials per condition:
     % 30 trials -> novel item tested
-    % 45 trials -> repeated item tested
-    % 22 or 23 trials -> rep 1 item 
-    % 22 or 23 trials -> rep 2 item
+    % 30 trials -> repeated item tested
 
     mainTestOrder = NaN(nTrials,1);
 
-    novelProb = 0.40;
-    repeatedProb = 0.60;
+    novelProb = 0.50;
+    repeatedProb = 0.50;
     rep1Prob = 0.30;
     rep2Prob = 0.30;
 
@@ -730,7 +714,7 @@ conditionMatrix(:,5) = reshape(colorsMat((nCoupleColors + 1):end, :), nTrialsTot
 
     %% Spell out item location coordinates
     
-    wheelRadius = 225;
+    wheelRadius = 150;
     coords = @(degs) wheelRadius * [cosd(degs), -sind(degs)];   % y-down screen coords
     
     thetas = conditionMatrix(:,6);
@@ -738,19 +722,29 @@ conditionMatrix(:,5) = reshape(colorsMat((nCoupleColors + 1):end, :), nTrialsTot
     conditionMatrix(:,10:11) = coords(thetas + 120);
     conditionMatrix(:,12:13) = coords(thetas + 240);
 
+    conditionMatrix(:,6) = [];
+
+    % %% Shift everything down by one row to accommodate JS's 0-based indexing
+    % tempMat = NaN(901, 15);
+    % tempMat(2:end, :) = conditionMatrix;
+    % conditionMatrix = tempMat;
+    % tempMatString = strings(901, 3);
+    % tempMatString(2:end, :) = imageMatrix;
+    % imageMatrix = tempMatString;
+
     %% ===================== SAVE =====================
 
-    % saveFolder = fullfile(experimentRoot, 'imperil6DeltaConditionFiles');
-    % saveFolderTraining = fullfile(experimentRoot, 'imperil6DeltaConditionFilesTraining');
-    % 
-    % currentLabel = sprintf('imperil6Deltacond%d.mat', condFile);
-    % currentLabelTrain = sprintf('imperil6DeltaTrainCond%d.mat', condFile);
-    % 
-    % fullPath = fullfile(saveFolder, currentLabel);
-    % fullPathTrain = fullfile(saveFolderTraining, currentLabelTrain);
-    % 
-    % save(fullPath, 'conditionMatrix', 'imageMatrix');
-    % save(fullPathTrain, 'trainingMatrix', 'trainingImageMatrix');
+    saveFolder = fullfile(experimentRoot, 'imperil6DeltaConditionFiles');
+    saveFolderTraining = fullfile(experimentRoot, 'imperil6DeltaConditionFilesTraining');
+
+    currentLabel = sprintf('imperil6DeltaWebcond%d.mat', condFile);
+    currentLabelTrain = sprintf('imperil6DeltaWebTrainCond%d.mat', condFile);
+
+    fullPath = fullfile(saveFolder, currentLabel);
+    fullPathTrain = fullfile(saveFolderTraining, currentLabelTrain);
+
+    save('conditionMatrix', 'imageMatrix');
+    save('trainingMatrix', 'trainingImageMatrix');
 
     %% Save the results in the JavaScript format
     fid = fopen('conditionMatrixTest.json', "w"); 
@@ -779,19 +773,15 @@ end
 
 % Col 1: Repetition counter
 % Col 2: Context change vals
-% Col 3: Repeated Item 1 color
-% Col 4: Repeated Item 2 color
-% Col 5: Novel Item color
-% Col 6: Rotation angle
-% Col 7: Probe index
-% Col 8: Position 1 x coord
-% Col 9: Position 1 y coord
-% Col 10: Position 2 x coord
-% Col 11: Position 2 y coord
-% Col 12: Position 3 x coord
-% Col 13: Position 3 y coord
+% Col 3: Repeated Item color
+% Col 4: Novel Item color
+% Col 5: Rotation angle
+% Col 6: Probe index
+% Col 7: Position 1 x coord
+% Col 8: Position 1 y coord
+% Col 9: Position 2 x coord
+% Col 10: Position 2 y coord
 
 % IMAGE MATRIX:
-% Col 1: Repeated Item 1 DIR
-% Col 2: Repeated Item 2 DIR
-% Col 3: Novel Item DIR
+% Col 1: Repeated Item DIR
+% Col 2: Novel Item DIR

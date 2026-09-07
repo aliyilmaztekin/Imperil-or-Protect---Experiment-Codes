@@ -705,8 +705,7 @@ conditionMatrix(:,5) = reshape(colorsMat((nCoupleColors + 1):end, :), nTrialsTot
     %% Rewrite image names 
     frontEnd = wildcardPattern + '/';
     imPrefix = "obj";
-    imSuffix = '-resized.png';
-
+    imSuffix = "-resized.png";
 
     for rewrite = 1:nTrials
         curRow = imageMatrix(rewrite,:);        % check orientation
@@ -716,11 +715,13 @@ conditionMatrix(:,5) = reshape(colorsMat((nCoupleColors + 1):end, :), nTrialsTot
             objID = erase(curRow{item}, frontEnd);
             curRow{item} = objID;
 
-            objID2 = erase(curRow2{item}, frontEnd); erase(curRow2{item}, imPrefix);
+            objID2 = erase(curRow2{item}, frontEnd); 
+            objID2 = erase(objID2, [imPrefix, imSuffix]);
+
             curRow2{item} = objID2;
         end
         imageMatrix(rewrite,:) = curRow;
-        conditionMatrix(rewrite,14:16) = (curRow2);
+        conditionMatrix(rewrite,14:16) = str2double(curRow2);
     end
 
     %% Extract Image IDs 
@@ -729,7 +730,7 @@ conditionMatrix(:,5) = reshape(colorsMat((nCoupleColors + 1):end, :), nTrialsTot
 
     %% Spell out item location coordinates
     
-    wheelRadius = 225;
+    wheelRadius = 150;
     coords = @(degs) wheelRadius * [cosd(degs), -sind(degs)];   % y-down screen coords
     
     thetas = conditionMatrix(:,6);
@@ -737,26 +738,36 @@ conditionMatrix(:,5) = reshape(colorsMat((nCoupleColors + 1):end, :), nTrialsTot
     conditionMatrix(:,10:11) = coords(thetas + 120);
     conditionMatrix(:,12:13) = coords(thetas + 240);
 
+    conditionMatrix(:,6) = [];
+
+    % %% Shift everything down by one row to accommodate JS's 0-based indexing
+    % tempMat = NaN(901, 15);
+    % tempMat(2:end, :) = conditionMatrix;
+    % conditionMatrix = tempMat;
+    % tempMatString = strings(901, 3);
+    % tempMatString(2:end, :) = imageMatrix;
+    % imageMatrix = tempMatString;
+
     %% ===================== SAVE =====================
 
-    % saveFolder = fullfile(experimentRoot, 'imperil6DeltaConditionFiles');
-    % saveFolderTraining = fullfile(experimentRoot, 'imperil6DeltaConditionFilesTraining');
-    % 
-    % currentLabel = sprintf('imperil6Deltacond%d.mat', condFile);
-    % currentLabelTrain = sprintf('imperil6DeltaTrainCond%d.mat', condFile);
-    % 
-    % fullPath = fullfile(saveFolder, currentLabel);
-    % fullPathTrain = fullfile(saveFolderTraining, currentLabelTrain);
-    % 
-    % save(fullPath, 'conditionMatrix', 'imageMatrix');
-    % save(fullPathTrain, 'trainingMatrix', 'trainingImageMatrix');
+    saveFolder = fullfile(experimentRoot, 'imperil6DeltaConditionFiles');
+    saveFolderTraining = fullfile(experimentRoot, 'imperil6DeltaConditionFilesTraining');
+
+    currentLabel = sprintf('imperil6DeltaWebcond%d.mat', condFile);
+    currentLabelTrain = sprintf('imperil6DeltaWebTrainCond%d.mat', condFile);
+
+    fullPath = fullfile(saveFolder, currentLabel);
+    fullPathTrain = fullfile(saveFolderTraining, currentLabelTrain);
+
+    save('conditionMatrix', 'imageMatrix');
+    save('trainingMatrix', 'trainingImageMatrix');
 
     %% Save the results in the JavaScript format
-    fid = fopen('conditionMatrix1.json', "w"); 
+    fid = fopen('conditionMatrixTest.json', "w"); 
     fprintf(fid, '%s', jsonencode(conditionMatrix)); 
     fclose(fid);
 
-    fid = fopen('imageMatrix1.json', "w"); 
+    fid = fopen('imageMatrixTest.json', "w"); 
     fprintf(fid, '%s', jsonencode(imageMatrix)); 
     fclose(fid);
 
