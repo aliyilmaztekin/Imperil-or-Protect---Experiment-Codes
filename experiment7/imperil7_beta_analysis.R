@@ -1,92 +1,89 @@
-# Imperil or Protect - Experiment 6 - ANOVA/LMER analysis - ALL VERSIONS
+# Imperil or Protect - Experiment 6 - Design Delta
 # Coded by A.Y. 
 
 ### SETUP/PARAMETERS ----
 
-library(afex)
-afex_options(type = 3, check_contrasts = TRUE)
+
 library(R.matlab)
 library(dplyr)
 library(ggplot2)
 library(emmeans)
 library(stringr)
 library(lme4)
-library(lmerTest)   # for Satterthwaite df + p-values
+library(lmerTest) 
 library(glmmTMB)
 library(brms)
 library(ggplot2)
 library(rlang)
-library(car)
+library(pracma)
 
 options(scipen = 999)  # Avoid scientific notation
 
-version <- 'alpha' # alpha, beta or gamma. delta has its own script
-base_dir <- sprintf('/Users/ali/Desktop/visual imperil project/imperil6_reactivation_crisis/design_%s_output', version)
+base_dir <- '/Users/ali/Desktop/Imperil-or-Protect---Experiment-Codes/experiment7/pilot2analyze'
 
 files <- list.files(base_dir, pattern = "\\.mat$", full.names = TRUE)
 
 dfs <- lapply(files, function(f) {
   mat <- R.matlab::readMat(f)
-  as.data.frame(mat$outputMatrix)
+  as.data.frame(mat$resultsMatrix)
 })
 
 combinedData <- bind_rows(dfs)
-
-if (version == 'alpha') {
-  colnames(combinedData) <- c(
-    "subject", "conditionUsed", "block", "trial", "repetition",
-    "context", "contextCode", "theta", "item1color", "item2color", "item3color",
-    "item4color", "itemTested", "angle1", "absAngle1", "initiation_time1", "movement_time1", "rt1",
-    "click1", "adj1", "randAdd1","angle2", "absAngle2", "initiation_time2", "movement_time2", "rt2",
-    "click2", "adj2", "randAdd2", "break", "cond"
-  )
-} else if (version != "alpha") {
-  colnames(combinedData) <- c(
-    "subject", "conditionUsed", "block", "trial", "repetition",
-    "context", "contextCode", "theta", "item1color", "item2color", "item3color",
-    "item4color", "itemTested", "angle1", "absAngle1", "initiation_time1", "movement_time1", "rt1",
-    "click1", "adj1", "randAdd1", "break", "cond"
-  )
-}
-
-
-# 1) Put in your DV and IVs
-dependent_variable <- "angle2"
-independent_variables <- c("repetition", "context")
-tested_item <- "rep1"
-
-dv <- sym(dependent_variable)
-
-# bad_subjects <- combinedData %>%
-#   mutate(
-#     subject = factor(subject),
-#     angle1_num = as.numeric(as.character(angle1)),
-#     angle1_abs = abs(((angle1_num + 180) %% 360) - 180)
-#   ) %>%
-#   filter(is.finite(angle1_abs), is.finite(rt1), rt1 >= 0.3, angle1_abs > 0) %>%
-#   group_by(subject) %>%
-#   summarize(mean_abs_angle1 = mean(angle1_abs, na.rm = TRUE), .groups = "drop") %>%
-#   filter(mean_abs_angle1 > 45)
-# 
-# message("Excluded subjects (mean abs circular error > 45°):")
-# print(bad_subjects)
-# 
-# # 2) Apply exclusion to the raw data
-# combinedData_sub <- combinedData %>%
-#   mutate(subject = factor(subject)) %>%
-#   filter(!(subject %in% bad_subjects$subject))
-
-target_probes <- switch(tested_item,
-                        novel = "novel",
-                        rep1   = c("rep1", "rep2", "rep3")
+colnames(combinedData) <- c(
+  "subject", "trial", "repetition", "context", "probe", "signedError", "absError", "rtOnset", "rt"
 )
 
+### PREPROCESSING
+
+# Put in your DV and IVs
+dependent_variable <- "absError"
+tested_item <- "rep" 
+independent_variables <- c("repetition", "context")
+dv <- sym(dependent_variable)
+
+# Outlier rejection
+bad_subjects <- combinedData %>%
+  dplyr::mutate(
+    subject = factor(subject),
+    angle_num = as.numeric(as.character(signedError)),
+    angle_abs = abs(((angle_num + 180) %% 360) - 180)
+  ) %>%
+  dplyr::filter(is.finite(angle_abs), is.finite(rt), rt >= 0.3, angle_abs > 0) %>%
+  dplyr::group_by(subject) %>%
+  dplyr::summarize(mean_abs_angle = mean(angle_abs, na.rm = TRUE), .groups = "drop") %>%
+  dplyr::filter(mean_abs_angle > 45)
+
+combinedData_sub <- combinedData %>%
+  dplyr::mutate(subject = factor(subject)) %>%
+  dplyr::filter(!(subject %in% bad_subjects$subject))
+
+
+# Compute error to non-target colors (for swap analysis)
+# combinedData_sub_swap <- combinedData_sub %>%
+#   mutate(
+#     nonTargetError1 = case_when(
+#       itemTested == 1 ~ ((item2color - adj) + 180) %% 360 - 180,
+#       itemTested == 2 ~ ((item1color - adj) + 180) %% 360 - 180,
+#       itemTested == 3 ~ ((item1color - adj) + 180) %% 360 - 180
+#     ),
+#     nonTargetError2 = case_when(
+#       itemTested == 1 ~ ((item4color - adj) + 180) %% 360 - 180,
+#       itemTested == 2 ~ ((item4color - adj) + 180) %% 360 - 180,
+#       itemTested == 3 ~ ((item2color - adj) + 180) %% 360 - 180
+#     )
+#   )
+
+# Save data for mixture and swap model-fitting in MATLAB
+# thirdpass_matrix <- data.matrix(combinedData_sub_swap)
+# writeMat("/Users/ali/Desktop/Imperil-or-Protect---Experiment-Codes/experiment6/swap_model/combinedData_thirdpass6.mat",
+#          thirdpass = thirdpass_matrix)
+
 # Data trimming
-combinedData_sub_full <- combinedData %>%
+combinedData_sub_full <- combinedData_sub %>%
   dplyr::mutate(
     raw_outcome = as.numeric(as.character(.data[[dependent_variable]])),
     
-    outcome = if (dependent_variable == "rt1") {
+    outcome = if (dependent_variable == "rt") {
       raw_outcome
     } else {
       abs(((raw_outcome + 180) %% 360) - 180)
@@ -103,65 +100,87 @@ combinedData_sub_full <- combinedData %>%
       levels = c(0, 1),
       labels = c("No Change", "Change")
     ),
+    
+    probe = factor(
+      probe,
+      levels = c(1,2),
+      labels = c("rep", "novel")
+    )
   ) %>%
-  filter(
+  dplyr::filter(
     is.finite(outcome),
-    is.finite(rt1),
-    rt1 >= 0.3,
+    is.finite(rt),
+    rt >= 0.3
+  ) %>%
+  dplyr::filter(
     repetition %in% c("1", "5"),
-    context %in% c("No Change", "Change")
+    context %in% c("No Change", "Change"),
+    if (tested_item == "novel") {
+      probe == "novel"
+    } else {
+      probe %in% c("rep")
+    }
   )
-
-  if (version != "alpha") {
-    combinedData_sub_full <- combinedData_sub_full %>%
-      filter(tested_item %in% target_probes)
-  }
 
 
 ## A reps-only copy of the same dataset (for plotting after analyses)
-combinedData_sub_reps <- combinedData %>%
+combinedData_sub_reps <- combinedData_sub %>%
   dplyr::mutate(
     raw_outcome = as.numeric(as.character(.data[[dependent_variable]])),
-    
-    outcome = if (dependent_variable == "rt1") {
+
+    outcome = if (dependent_variable == "rt") {
       raw_outcome
     } else {
       abs(((raw_outcome + 180) %% 360) - 180)
     },
-    
+
     repetition = factor(
       repetition,
       levels = c(1, 2, 3, 4, 5, 6),
       labels = c("1","2","3","4","5","6")
     ),
+
+    probe = factor(
+      probe,
+      levels = c(1, 2),
+      labels = c("rep", "novel")
+    )
   ) %>%
-  filter(
+  dplyr::filter(
     is.finite(outcome),
-    is.finite(rt1),
-    rt1 >= 0.3
+    is.finite(rt),
+    rt >= 0.3
+  ) %>%
+  dplyr::filter(
+    if (tested_item == "novel") {
+      probe == "novel"
+    } else {
+      probe %in% c("rep")
+    }
   )
 
-if (version != "alpha") {
-  combinedData_sub_reps <- combinedData_sub_reps %>%
-    filter(tested_item %in% target_probes)
-}
 
+# Descriptive statistics
+data_desc <- combinedData_sub_full %>%
+  dplyr::group_by(subject, repetition, context) %>%
+  dplyr::summarize(outcome = mean(outcome, na.rm = TRUE), .groups = "drop") %>%
+  dplyr::mutate(subject = factor(subject))
 
-data_RMAnova <- combinedData_sub_full %>%
-  group_by(subject, repetition, context) %>%
-  summarize(outcome = mean(outcome, na.rm = TRUE), .groups = "drop") %>%
-  mutate(subject = factor(subject))
-
-descriptives <- data_RMAnova %>%
-  group_by(repetition, context) %>%
-  summarize(
+descriptives <- data_desc %>%
+  dplyr::group_by(repetition, context) %>%
+  dplyr::summarize(
     mean = mean(outcome),
     sd = sd(outcome),
     n_subj = n_distinct(subject),
     se = sd / sqrt(n_subj),
     .groups="drop"
   )
-print(descriptives)
+
+descriptives
+
+# # If you want all the decimals
+# dput(descriptives$mean)
+# dput(descriptives$sd)
 
 
 ## Linear Mixed Effects Model
@@ -252,6 +271,10 @@ emm_df_reps <- emm_df_reps %>%
     ws_upper = response + ws_ci
   )
 
+# Imperil or Protect - Experiment 6 - Design Delta
+# Coded by A.Y. 
+
+
 ## PLOTTING
 
 emm_df_reps[c(1, 5), c("response", "ws_lower", "ws_upper")] <- NA
@@ -270,9 +293,9 @@ hybrid_plot <- ggplot() +
   geom_line(data = emm_df_full, aes(x = repetition, y = response), show.legend = FALSE) +
   geom_errorbar(data = emm_df_full, aes(x = repetition, ymin = ws_lower, ymax = ws_upper, color = context), width = 0.5, show.legend = FALSE) +
   scale_color_manual(values = color_names, breaks = c("Repetition Only","No Change","Change")) +
-  labs(title = if(tested_item == "rep1") "Repeated Item" else "Novel Item", x = "Repetition", y = if(dependent_variable == "angle1" || dependent_variable == "angle2") "Angular Error (°)" else "Reaction Time (s)") +
-  coord_cartesian(ylim = if(dependent_variable == "angle1" || dependent_variable == "angle2") c(10,70) else c(1500,2500)) +
-  scale_y_continuous(breaks = if(dependent_variable == "angle1" || dependent_variable == "angle2") seq(10, 70, by = 2) else seq(1500,2500, by = 100)) +
+  labs(title = if(tested_item == "rep") "Repeated Item" else "Novel Item", x = "Repetition", y = if(dependent_variable == "absError") "Angular Error (°)" else "Reaction Time (s)") +
+  coord_cartesian(ylim = if(dependent_variable == "absError") c(18, 36) else c(1500,2500)) +
+  scale_y_continuous(breaks = if(dependent_variable == "absError") seq(18, 36, by = 2) else seq(1500,2500, by = 100)) +
   theme_classic() +
   theme(
     plot.title = element_text(size = 18, face = "bold", hjust = 0.5,
@@ -288,11 +311,12 @@ hybrid_plot <- ggplot() +
   )
 
 hybrid_plot
+
+
 print(descriptives)
 car::Anova(glmm_mod, type = "III")
-emm_full <- emmeans(glmm_mod, ~ context | repetition, type = "response")
+emm_full <- emmeans(glmm_mod, ~ repetition, type = "response")
 pairs(emm_full)
-
 
 
 

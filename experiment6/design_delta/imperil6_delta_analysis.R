@@ -40,7 +40,7 @@ colnames(combinedData) <- c(
 
 # Put in your DV and IVs
 dependent_variable <- "angle"
-tested_item <- "novel" 
+tested_item <- "repeated" 
 independent_variables <- c("repetition", "context")
 dv <- sym(dependent_variable)
 
@@ -178,6 +178,13 @@ descriptives <- data_desc %>%
     se = sd / sqrt(n_subj),
     .groups="drop"
   )
+
+rt_descs <- combinedData_sub_full %>%
+  dplyr::group_by(subject) %>%
+  dplyr::summarize(outcome = mean(outcome, na.rm = TRUE), .groups = "drop")
+
+
+
 
 # # If you want all the decimals
 # dput(descriptives$mean)

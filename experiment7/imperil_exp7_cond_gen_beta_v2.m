@@ -5,7 +5,7 @@
 % v1 - 23.04.2026: Design alpha
 % v2 - 25.04.2026: Design beta. Change of design: Mem load 3 -> 2
 
-nTrials = 720; % Can be 480, 600, 720 or 900
+nTrials = 660; % Can be 480, 600, 720 or 900
 
 %% Relevant DIRs
 % Get the folder where this script is located
@@ -17,7 +17,7 @@ addpath(genpath(experimentRoot));
 
 imageLocation = '/Users/ali/Desktop/Imperil-or-Protect---Experiment-Codes/experiment6';
 
-stimuliDIR = fullfile(imageLocation, 'TestObjectsTransparent');
+stimuliDIR = fullfile(imageLocation, 'TestObjectsTransparentExp6');
 trainingStimuliDIR = fullfile(imageLocation, 'trainingStimuliExp6');
 
 % Total number of repetition series to generate based on desired trial
@@ -29,7 +29,7 @@ trainingStimuliDIR = fullfile(imageLocation, 'trainingStimuliExp6');
 if nTrials == 720
     nSeriesMain = nTrials / 6;  
     nTrialsPCond = nTrials/6/2;
-elseif nTrials == 600
+elseif nTrials == 660
     nSeriesMain = nTrials / 6; 
      nTrialsPCond = nTrials/6/2;
 elseif nTrials == 480
@@ -48,7 +48,7 @@ nSeriesTrain = nTrialsTrain / 6;
 nTrialsTotal = nTrials + nTrialsTrain;
 nSeriesTotal = nSeriesMain + nSeriesTrain;
 
-nTrainingImages = 28;
+nTrainingImages = 14;
 
 rng('shuffle');
 
@@ -82,117 +82,136 @@ for condFile = 1:1
     % JavaScript doesn't like NaNs. So, switch them out for 9s.
     conditionMatrix(isnan(conditionMatrix(:,2)), 2) = 9;
     
-     %% ===================== COLOR ASSIGNMENT =====================
+    %% Colour-hue generation
+%
+% Criterion 1: the nColorsPerSeries hues within a streak are pairwise at
+%              least colorOffset apart (circular distance on the hue wheel).
+% Criterion 2: the first two hues of a streak are at least colorOffset from
+%              BOTH the first and the last hue of the preceding streak
+%              (4 distances per boundary).
+%
+% Unlike the original, criterion 2 is enforced at *every* streak boundary,
+% not only within pairs of columns. If you deliberately want the constraint
+% to reset every second column, set chainAllStreaks = false below.
 
-    validSetFound = false;
-    outerAttempts = 0;
-    maxOuterAttempts = 1000;
-    colorOffset = 45;
+rng('shuffle');
 
-    nCoupleColors = 1; % Decreased from 2 repeated items
-    nMainColorsPerSeries = 6;
-    nColorsPerSeries = nCoupleColors + nMainColorsPerSeries;  % 7 unique color hues per series
+%% Parameters
+hueRange             = 360;                 % full circle; hues live in 1..360
+colorOffset          = 45;                  % minimum separation, in degrees
+nCoupleColors        = 1;
+nMainColorsPerSeries = 6;
+nColorsPerSeries     = nCoupleColors + nMainColorsPerSeries;   % 7
+nStreaks             = nSeriesTotal;
+maxAttempts          = 1000;
+chainAllStreaks      = true;
 
-    wrapHue = @(x) mod(x - 1, 359) + 1;
+% Wrap into 1..hueRange. NOTE: the original used mod(x-1,359)+1, which makes
+% the wheel 359 wide and leaves a 44-degree gap across the wrap point.
+wrapHue  = @(x) mod(x - 1, hueRange) + 1;
 
-    while ~validSetFound && outerAttempts < maxOuterAttempts
-        outerAttempts = outerAttempts + 1;
+% Circular distance: the shorter way round the wheel. Replaces the
+% "a:b" colon ranges, which silently produce [] whenever a > b after wrapping.
+circDist = @(a,b) min(mod(a - b, hueRange), mod(b - a, hueRange));
 
-        colorsVec = [];
+% Evenly spaced candidate hues, exactly colorOffset apart.
+nLattice = floor(hueRange / colorOffset);            % 8 for offset 45
+lattice  = @(s) wrapHue(s + colorOffset * (0:nLattice-1));
 
-        % Repeat for each 6-trial streak
-        for series = 1:nSeriesTotal
+assert(nColorsPerSeries <= nLattice, ...
+    'Cannot fit %d hues at >= %d deg apart on a %d deg wheel (max %d).', ...
+    nColorsPerSeries, colorOffset, hueRange, nLattice);
 
-            % To store current colors
-            colors = zeros(1, nColorsPerSeries);
+allHues   = 1:hueRange;
+colorsMat = NaN(nColorsPerSeries, nStreaks);         % correct preallocation
 
-            % Begin by choosing a random color hue
-            colors(1) = randi([1 359]);
+%% Generation
+prevFirst = [];
+prevLast  = [];
 
-            % Populate each vector element by adding onto the first color.
-            % Ensures minimum requested color distance
-            % wrapHue function is to abide by the circularity of the color space 
-            for k = 2:nColorsPerSeries
-                colors(k) = wrapHue(colors(k-1) + colorOffset);
+for k = 1:nStreaks
+
+    if isempty(prevFirst)
+        % ---- Unconstrained streak: first one, or a reset boundary --------
+        startDeg = randi(hueRange);
+        pool     = lattice(startDeg);
+        pool     = pool(2:end);                      % everything but startDeg
+        pool     = pool(randperm(numel(pool)));
+        % Truncating the shuffled pool IS the "spare" removal, and it can
+        % never remove one of the two anchor hues.
+        streak   = [startDeg, pool(1:nColorsPerSeries-1)];
+
+    else
+        % ---- Constrained streak: honour criterion 2 ----------------------
+        okStart = allHues(circDist(allHues, prevFirst) >= colorOffset & ...
+                          circDist(allHues, prevLast)  >= colorOffset);
+        assert(~isempty(okStart), 'No legal start hue at streak %d.', k);
+
+        found = false;
+        for attempt = 1:maxAttempts
+            startDeg = okStart(randi(numel(okStart)));
+
+            pool = lattice(startDeg);
+            pool = pool(2:end);                      % excludes startDeg
+
+            % Candidates for the SECOND hue, which must also clear both
+            % anchors of the previous streak.
+            freeDegs = pool(circDist(pool, prevFirst) >= colorOffset & ...
+                            circDist(pool, prevLast)  >= colorOffset);
+            if isempty(freeDegs)
+                continue                             % try another start hue
             end
 
-            % Randomize order to avoid predictable increase of color hues
-            colors = colors(randperm(nColorsPerSeries));
-            colorsVec = [colorsVec; colors(:)];
+            pairDeg  = freeDegs(randi(numel(freeDegs)));
+            remDegs  = setdiff(pool, pairDeg, 'stable');
+            remDegs  = remDegs(randperm(numel(remDegs)));
+
+            streak = [startDeg, pairDeg, remDegs(1:nColorsPerSeries-2)];
+            found  = true;
+            break
         end
-
-        % Reshape colorsVec of R nTrials x nColorsPerSeries into
-        % nColorsPerSeries x nSeriesTotal
-        colorsMat = reshape(colorsVec, nColorsPerSeries, nSeriesTotal);
-
-        maxInnerAttempts = 1000;
-        validSetFound = true;
-
-        %% Check for color distances across repetition series
-        % Keep shuffling color orders within each successive repetition
-        % until distance criterion is met. If stuck, revert back up and
-        % fetch a new color matrix. 
-        for col = 1:(nSeriesTotal - 1)
-
-            success = false;
-            attempt = 0;
-
-            while ~success && attempt < maxInnerAttempts
-                attempt = attempt + 1;
-
-                %% Check 1: The first two element-wise distances between two successive rep streaks has 
-                %% to be larger than the minimum
-
-                %  First, shuffle the hues in the next series
-                colorsMat(:, col+1) = colorsMat(randperm(nColorsPerSeries), col+1);
-
-                prevStreak = colorsMat(1:2, col);
-                nextStreak = colorsMat(1:2, col+1);
-
-                % Compare element-wise distance between the current and
-                % next streak
-                % As per linear algebra rules, the second vector has to be
-                % transposed when it's subtracted from the first.
-                D = abs(prevStreak - nextStreak');
-                circD = min(D, 360 - D);
-
-                % If all distances are larger than the minimum, move on to
-                % the next check
-                coupleOK = all(circD(:) >= colorOffset);
-
-                %% Check 2: The last color hue in one streak has to be distant enough 
-                %% from the first color of the next streak.
-                prevLast = colorsMat(end, col);
-                nextFirst = colorsMat(nCoupleColors + 1, col+1);
-
-                D2 = abs(prevLast - nextFirst);
-                circD2 = min(D2, 360 - D2);
-
-                array2OK = circD2 >= colorOffset;
-
-                success = coupleOK && array2OK;
-            end
-
-            if ~success
-                validSetFound = false;
-                break;
-            end
-        end
+        assert(found, 'Failed to build streak %d in %d attempts.', k, maxAttempts);
     end
 
-    if ~validSetFound
-        error('Could not generate valid colorsMat.');
-    end
+    colorsMat(:,k) = streak(:);
 
-    % Belt-and-braces: fail loudly here, at generation time, rather than
-    % downstream in a filename or a 404 several files later.
-    if any(colorsMat(:) < 1) || any(colorsMat(:) > 359)
-        bad = colorsMat(colorsMat(:) < 1 | colorsMat(:) > 359);
-        error('colorsMat contains %d value(s) outside 1-359 (e.g. %g) despite wrapHue. Check colorOffset and nColorsPerSeries for a case that defeats the wrap.', ...
-            numel(bad), bad(1));
+    if chainAllStreaks || mod(k,2) == 1
+        prevFirst = streak(1);
+        prevLast  = streak(end);
+    else
+        prevFirst = [];                              % reset every second column
+        prevLast  = [];
     end
+end
 
-    fprintf('Valid colorsMat found after %d attempts.\n', outerAttempts);
+%% Verification
+assert(~any(isnan(colorsMat(:))), 'Unfilled entries in colorsMat.');
+
+% Criterion 1
+for k = 1:nStreaks
+    c = colorsMat(:,k);
+    assert(numel(unique(c)) == nColorsPerSeries, ...
+        'Duplicate hue in streak %d.', k);
+    D = circDist(c, c.');
+    D(1:nColorsPerSeries+1:end) = Inf;               % ignore the diagonal
+    assert(all(D(:) >= colorOffset), ...
+        'Criterion 1 violated in streak %d (min %g).', k, min(D(:)));
+end
+
+% Criterion 2
+for k = 2:nStreaks
+    if ~chainAllStreaks && mod(k,2) == 1
+        continue
+    end
+    p = colorsMat([1 end], k-1);                     % first & last of previous
+    n = colorsMat([1 2],   k);                       % first two of current
+    d = circDist(repmat(n(:),2,1), reshape(repmat(p(:).',2,1),[],1));
+    assert(all(d >= colorOffset), ...
+        'Criterion 2 violated at boundary %d-%d (min %g).', k-1, k, min(d));
+end
+
+fprintf('OK: %d streaks x %d hues, both criteria satisfied.\n', ...
+    nStreaks, nColorsPerSeries);
 
     % Extract the first 6 colors in each column, designate them as main
     % experiment color hues, and flatten back into a column-vector for
@@ -439,7 +458,7 @@ trainingStimuliPaths = fullfile({trainingStimuliFiles.folder}, {trainingStimuliF
 
 trainingImageCount = numel(trainingStimuliPaths);
 
-nTrainingSeries = nTrialsTrain / 6;
+nTrainingSeries = 2;
 
 % With 28 images:
 %   4 base series
@@ -449,7 +468,7 @@ nTrainingSeries = nTrialsTrain / 6;
 %
 % Then reuse these 4 base series to fill the requested training series.
 
-nBaseTrainingSeries = 4;
+nBaseTrainingSeries = 2;
 nMem1PerTrainingSeries = 1;
 nMem2PerTrainingSeries = 6;
 nImagesPerTrainingSeries = nMem1PerTrainingSeries + nMem2PerTrainingSeries;
@@ -459,7 +478,7 @@ nTrainingBaseImagesNeeded = nBaseTrainingSeries * nImagesPerTrainingSeries;
 % Select nTrainingImages images and shuffle their order.
 trainingBasePool = trainingStimuliPaths(randperm(trainingImageCount, nTrainingImages));
 
-% Reshape into 4 base training series, each with 7 images.
+% Reshape into 2 base training series, each with 7 images.
 trainingBasePool = reshape(trainingBasePool, nBaseTrainingSeries, nImagesPerTrainingSeries);
 
 % The first image of each base series is the repeated item.
@@ -518,7 +537,7 @@ conditionMatrix(:,4) = reshape(colorsMat((nCoupleColors + 1):end, :), nTrialsTot
         rotations(theta) = remSpace(randi(numel(remSpace)));
     end
     rotations = repelem(rotations, 6, 1);
-    conditionMatrix(:,5) = rotations;
+    conditionMatrix(:,5) = 90;
 
     %% Split the training matrix from the main phase matrix
 
@@ -554,7 +573,7 @@ conditionMatrix(:,4) = reshape(colorsMat((nCoupleColors + 1):end, :), nTrialsTot
                        1 NaN NaN NaN 1 NaN 1 NaN NaN NaN 1 NaN]';
     
     trainingMatrix(:,2) = trainingContext;
-
+    trainingMatrix(isnan(trainingMatrix(:,2)), 2) = 9;
 
     %% TESTING INDEX ASSIGNMENT
     % Constrained randomized allocation:
@@ -575,8 +594,17 @@ conditionMatrix(:,4) = reshape(colorsMat((nCoupleColors + 1):end, :), nTrialsTot
     rep5ctx0 = find(conditionMatrix(:,2) == 0 & conditionMatrix(:,1) == 5);
     rep5ctx1 = find(conditionMatrix(:,2) == 1 & conditionMatrix(:,1) == 5);
 
-    repItemVals = repmat(1,1,nTrialsPCond*repeatedProb);
-    novelItemVals = repmat(2,1,nTrialsPCond*novelProb);
+    priority = randi(2,1);
+    if priority == 1
+        nTrialsPCondNovel = ceil(nTrialsPCond*novelProb);
+        nTrialsPCondRep = floor(nTrialsPCond*repeatedProb);
+    elseif priority == 2
+        nTrialsPCondNovel = floor(nTrialsPCond*novelProb);
+        nTrialsPCondRep = ceil(nTrialsPCond*repeatedProb);
+    end
+
+    repItemVals = repmat(1,1,nTrialsPCondRep);
+    novelItemVals = repmat(2,1,nTrialsPCondNovel);
 
     perCond1 = [repItemVals';novelItemVals'];
     perCond2 = [repItemVals';novelItemVals'];
@@ -663,6 +691,7 @@ conditionMatrix(:,4) = reshape(colorsMat((nCoupleColors + 1):end, :), nTrialsTot
     frontEnd = wildcardPattern + '/';
     imPrefix = "obj";
     imSuffix = "-resized.png";
+    imSuffixTrain = "_transparent.png";
 
     for rewrite = 1:nTrials
         curRow = imageMatrix(rewrite,:);        % check orientation
@@ -682,6 +711,39 @@ conditionMatrix(:,4) = reshape(colorsMat((nCoupleColors + 1):end, :), nTrialsTot
         imageMatrix(rewrite,:) = curRow;
     end
 
+    for rewrite = 1:12
+        curRow3 = trainingImageMatrix(rewrite,:);
+        curRow4 = trainingImageMatrix(rewrite,:);
+
+        for item = 1:2
+
+            objID = erase(curRow3{item}, frontEnd); 
+            curRow3{item} = objID;
+
+            objID2 = erase(curRow4{item}, frontEnd); 
+            objID2 = erase(objID2, [imPrefix, imSuffixTrain]);
+
+            curRow4{item} = objID2;
+        end
+
+        trainingImageMatrix(rewrite,:) = curRow3;
+    end
+
+    % %% Training image repetition check
+    % 
+    %     rep1 = trainingImageMatrix(1,1);
+    %     rep2 = trainingImageMatrix(7,1);
+    %     novel1 = trainingImageMatrix(1:6,2);
+    %     novel2 = trainingImageMatrix(7:12,2);
+    % 
+    % 
+    %     if strcmp(rep1,rep2) || any(strcmp(rep1,novel1)) || any(strcmp(rep2,novel1)) || any(strcmp(rep2,novel1)) || any(strcmp(rep2,novel2))
+    %         disp("overlap");
+    %     else
+    %         disp("all good");
+    %     end
+
+
 
     %% Spell out item location coordinates
     %% The x-y coordinates of where the encoding items should appear 
@@ -694,10 +756,15 @@ conditionMatrix(:,4) = reshape(colorsMat((nCoupleColors + 1):end, :), nTrialsTot
     % The distance between the repeated and the novel item is exactly 180
     % To make them orthogonal to each other. 
     % That's specific to design beta. 
-    conditionMatrix(:,7:8)   = coords(thetas + 0);
-    conditionMatrix(:,9:10) = coords(thetas + 180);
+    conditionMatrix(:,7:8)   = coords(thetas + 90);
+    conditionMatrix(:,9:10) = coords(thetas + 270);
+
+    thetas2 = trainingMatrix(:,5);
+    trainingMatrix(:,7:8)   = coords(thetas2 + 90);
+    trainingMatrix(:,9:10) = coords(thetas2 + 270);
 
     conditionMatrix(:,5) = [];
+    trainingMatrix(:,5) = [];    
 
     % %% Shift everything down by one row to accommodate JS's 0-based indexing
     % tempMat = NaN(901, 15);
@@ -706,6 +773,30 @@ conditionMatrix(:,4) = reshape(colorsMat((nCoupleColors + 1):end, :), nTrialsTot
     % tempMatString = strings(901, 3);
     % tempMatString(2:end, :) = imageMatrix;
     % imageMatrix = tempMatString;
+
+    %% Recombine the training and main matrices. 
+
+    combineMatrix = NaN(nTrials+12, 9);
+    combineMatrix(1:12,:) = trainingMatrix(1:12,:);
+    combineMatrix(13:end,:) = conditionMatrix;
+
+    combineImageMatrix = cell(nTrials+12,2);
+    combineImageMatrix(1:12,:) = trainingImageMatrix(1:12,:);
+    combineImageMatrix(13:end,:) = imageMatrix;
+
+    %% Randomize encoding sites
+    randomizationIdx = repelem([0; 1], 61, 1);
+    randomizationIdx = randomizationIdx(randperm(length(randomizationIdx)));
+
+    for series = 1:nSeriesMain+1
+        if randomizationIdx(series) == 0
+
+        elseif randomizationIdx(series) == 1
+            combineMatrix(series*6+1:series*6+6,end-3:end) = -1*combineMatrix(series*6+1:series*6+6,end-3:end);
+
+        end
+    end
+
 
     %% ===================== SAVE =====================
     % 
@@ -722,16 +813,24 @@ conditionMatrix(:,4) = reshape(colorsMat((nCoupleColors + 1):end, :), nTrialsTot
     % save('trainingMatrix', 'trainingImageMatrix');
 
     %% Save the results in the JavaScript format
-    fid = fopen('conditionMatrixBetaTest.json', "w"); 
-    fprintf(fid, '%s', jsonencode(conditionMatrix)); 
+    outDir = '/Users/ali/Desktop/Imperil-or-Protect---Experiment-Codes/experiment7/condFilesBeta';                         % folder in your repo
+    if ~exist(outDir, 'dir'), mkdir(outDir); end
+
+    conditionFile  = fullfile(outDir, sprintf('conditionMatrix_%02d.json', condFile));
+    imageFile = fullfile(outDir, sprintf('imageMatrix_%02d.json', condFile));
+
+    fid = fopen(conditionFile, 'w', 'n', 'UTF-8');
+    if fid == -1, error('Could not open %s for writing', condFile); end
+    fprintf(fid, '%s', jsonencode(combineMatrix));
     fclose(fid);
 
-    fid = fopen('imageMatrixBetaTest.json', "w"); 
-    fprintf(fid, '%s', jsonencode(imageMatrix)); 
+    fid = fopen(imageFile, 'w', 'n', 'UTF-8');
+    if fid == -1, error('Could not open %s for writing', imageFile); end
+    fprintf(fid, '%s', jsonencode(combineImageMatrix));
     fclose(fid);
-
     % Output saved to cd
 end
+
 
 %% Cols: 
 % CONDITION MATRIX:
